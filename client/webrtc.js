@@ -284,9 +284,11 @@ class WebRTCClient {
         
         this.dataChannel.onmessage = (event) => {
             const message = JSON.parse(event.data)
-            console.log('Received message:', message)
-            if (this.window && this.window.updateGameInfo) {
-                this.window.updateGameInfo(message)
+            if (message.type === 'gameStateUpdate') {
+                console.log('Game state update received:', message.gameState)
+                if (this.window && this.window.updateGame) {
+                    this.window.updateGame(message.gameState)
+                }
             }
         }
 

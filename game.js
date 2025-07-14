@@ -269,6 +269,12 @@ function move() {
         setTimeout(() => {
             moving = false
         }, 250)
+
+        const gameState = getGameState()
+        webrtcClient.sendMessage({
+            "type": "gameStateUpdate",
+            "gameState": gameState
+        })
     }
 }
 
@@ -362,11 +368,6 @@ function endGame() {
     currentFrame = 0
     
     // Reset character positions
-    warrior.x = 0
-    warrior.y = 0
-    warrior.targetX = 0
-    warrior.targetY = 0
-    warrior.currentAnim = "idle"
     
     // Clear the canvas
     ctx.fillStyle = 'black'
@@ -546,9 +547,7 @@ function initialize() {
     preloadTiles();
     preloadCharacters();
     preloadControls();
-
     resizeCanvas();
-
 
     // Check if there's a saved game and show continue button
     if (localStorage.getItem('mazeRTC_gameState')) {
@@ -556,13 +555,6 @@ function initialize() {
     }
 
     startButton.addEventListener('click', gameMode)
-    continueButton.addEventListener('click', () => {
-        if (loadGameState()) {
-            displayGameArea()
-        } else {
-            alert("No saved game found!")
-        }
-    })
     editorButton.addEventListener('click', editMode)
     hostButton.addEventListener('click', hostGame)
     joinButton.addEventListener('click', joinGame)
@@ -572,8 +564,6 @@ function initialize() {
     canvas.addEventListener('click', onCanvasClick)
     endGameButton.addEventListener('click', endGame)
     window.addEventListener('keydown', onKeyDown)
-
-    // Make updateConnectionStatus available globally
     window.updateConnectionStatus = updateConnectionStatus
 }
 
@@ -594,6 +584,11 @@ function updateGameInfo(info) {
     gameInfo.textContent = info
 }
 
+function updateGame(gameState) {
+    setGameState(gameState)
+    displayGameArea()
+}
+
 function closeConnectionPanel() {
     connectionPanel.style.display = 'none'
     buttonsContainer.style.display = 'flex'
@@ -610,14 +605,15 @@ function onKeyDown(e) {
     }
 }
 
-function saveGameState() {
-    const gameState = {
+function getGameState() {
+    return {
         characters: characters.map(char => ({
-            name: char.name,
+            num: char.num,
+            enabled: char.enabled,
             x: char.x,
             y: char.y,
-            targetX: char.targetX,
-            targetY: char.targetY,
+            exitX: char.exitX,
+            exitY: char.exitY,
             currentAnim: char.currentAnim
         })),
         board: board,
@@ -625,44 +621,33 @@ function saveGameState() {
         currentFrame: currentFrame,
         timestamp: Date.now()
     }
-    
-    localStorage.setItem('mazeRTC_gameState', JSON.stringify(gameState))
-    console.log("Game state saved")
 }
 
-function loadGameState() {
-    const savedState = localStorage.getItem('mazeRTC_gameState')
-    if (savedState) {
-        try {
-            const gameState = JSON.parse(savedState)
-            
-            // Restore board
-            board = gameState.board
-            
-            // Restore characters
-            characters = gameState.characters.map(charData => {
-                const char = { ...warrior }
-                char.name = charData.name
-                char.x = charData.x
-                char.y = charData.y
-                char.targetX = charData.targetX
-                char.targetY = charData.targetY
-                char.currentAnim = charData.currentAnim
-                return char
-            })
-            
-            // Restore animation state
-            animTime = gameState.animTime || 0
-            currentFrame = gameState.currentFrame || 0
-            
-            console.log("Game state loaded")
-            return true
-        } catch (error) {
-            console.error("Failed to load game state:", error)
-            return false
-        }
+function setGameState(gameState) {
+    board = gameState.board || board
+
+    // Restore characters if gameState has character data
+    if (gameState.characters && gameState.characters.length > 0) {
+        gameState.characters.forEach((charData, index) => {
+            if (index < characters.length) {
+                characters[index].enabled = charData.enabled
+                characters[index].x = charData.x
+                characters[index].y = charData.y
+                characters[index].exitX = charData.exitX
+                characters[index].exitY = charData.exitY
+                characters[index].currentAnim = charData.currentAnim
+            }
+        })
     }
-    return false
+
+    animTime = gameState.animTime || 0
+    currentFrame = gameState.currentFrame || 0
+}
+
+function saveGameState() {
+    const gameState = getGameState()
+    localStorage.setItem('mazeRTC_gameState', JSON.stringify(gameState))
+    console.log("Game state saved")
 }
 
 async function joinRoom() {
