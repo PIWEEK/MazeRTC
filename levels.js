@@ -21,3 +21,24 @@ const LEVELS = [
         ]
     }
 ]
+
+
+const TILES = [
+    { canMoveUp: true, canMoveRight: true, canMoveDown: true, canMoveLeft: true },
+    { canMoveUp: false, canMoveRight: true, canMoveDown: true, canMoveLeft: true },
+    { canMoveUp: true, canMoveRight: false, canMoveDown: true, canMoveLeft: true },
+    { canMoveUp: true, canMoveRight: true, canMoveDown: false, canMoveLeft: true },
+    { canMoveUp: true, canMoveRight: true, canMoveDown: true, canMoveLeft: false },
+    { canMoveUp: false, canMoveRight: false, canMoveDown: true, canMoveLeft: true },
+    { canMoveUp: false, canMoveRight: true, canMoveDown: false, canMoveLeft: true },
+    { canMoveUp: false, canMoveRight: true, canMoveDown: true, canMoveLeft: false },
+    { canMoveUp: true, canMoveRight: false, canMoveDown: false, canMoveLeft: true },
+    { canMoveUp: true, canMoveRight: false, canMoveDown: true, canMoveLeft: false },
+    { canMoveUp: true, canMoveRight: true, canMoveDown: false, canMoveLeft: false },
+    { canMoveUp: true, canMoveRight: false, canMoveDown: false, canMoveLeft: false },
+    { canMoveUp: false, canMoveRight: true, canMoveDown: false, canMoveLeft: false },
+    { canMoveUp: false, canMoveRight: false, canMoveDown: true, canMoveLeft: false },
+    { canMoveUp: false, canMoveRight: false, canMoveDown: false, canMoveLeft: true },
+    { canMoveUp: false, canMoveRight: false, canMoveDown: false, canMoveLeft: false },
+    { canMoveUp: false, canMoveRight: false, canMoveDown: false, canMoveLeft: false }
+]

@@ -230,7 +230,7 @@ function drawCharacter(character, delta) {
         const charX = character.x * TILE_SIZE + TILE_OFFSET_X;
         const charY = character.y * TILE_SIZE + TILE_OFFSET_Y;
         const animationIndex = currentFrame % character.anims[character.currentAnim].length
-        
+
         ctx.drawImage(character.img.exit, character.exitX * TILE_SIZE + TILE_OFFSET_X, character.exitY * TILE_SIZE + TILE_OFFSET_Y);
         ctx.save()
         if (character.num === selectedCharacter) {
@@ -248,18 +248,21 @@ function drawCharacters(delta) {
 }
 
 function validCommand(command) {
-    if (!characters[command.character] || !characters[command.character].enabled) {
+    let character = characters[command.character];
+    if (!character || !character.enabled) {
         return false;
     }
 
+    let currentTile = TILES[board[character.y][character.x]];
+
     if (command.value == 0) {
-        return (characters[command.character].y > 0)
+        return (character.y > 0 && currentTile.canMoveUp && TILES[board[character.y - 1][character.x]].canMoveDown)
     } else if (command.value == 1) {
-        return (characters[command.character].x < 5)
+        return (character.x < 5 && currentTile.canMoveRight && TILES[board[character.y][character.x + 1]].canMoveLeft)
     } else if (command.value == 2) {
-        return (characters[command.character].y < 5)
+        return (character.y < 5 && currentTile.canMoveDown && TILES[board[character.y + 1][character.x]].canMoveUp)
     } else if (command.value == 3) {
-        return (characters[command.character].x > 0)
+        return (character.x > 0 && currentTile.canMoveLeft && TILES[board[character.y][character.x - 1]].canMoveRight)
     }
 }
 
@@ -299,7 +302,7 @@ function gameLoop(timestamp) {
     if (gameEnded) {
         return // Stop the game loop if game has ended
     }
-    
+
     if (lastTime == 0) {
         lastTime = timestamp
         requestAnimationFrame(gameLoop)
@@ -368,7 +371,7 @@ function endGame() {
     if (!confirm("Are you sure you want to end the game?")) {
         return
     }
-    
+
     saveGameState()
     gameEnded = true
     buttonsContainer.style.display = 'flex'
@@ -377,24 +380,24 @@ function endGame() {
 
     characters = []
     buttons = []
-    
+
     // Reset animation timing
     animTime = 0
     lastTime = 0
     currentFrame = 0
-    
+
     // Reset character positions
-    
+
     // Clear the canvas
     ctx.fillStyle = 'black'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
-    
+
     // Reset selected button
     selectedButton = null
-    
+
     // Reset editing mode
     editing = false
-    
+
     console.log("Game ended")
 }
 
@@ -586,7 +589,7 @@ window.addEventListener('load', initialize)
 
 function updateConnectionStatus(status) {
     statusText.textContent = status
-    
+
     if (status === 'Connected - Ready to play!') {
         setTimeout(() => {
             closeConnectionPanel()
@@ -660,18 +663,18 @@ async function joinRoom() {
         alert('Please enter a room name')
         return
     }
-    
+
     try {
         statusText.textContent = 'Connecting to signaling server...'
-        
+
         // Initialize signaling if not already done
         if (!webrtcClient.signalingClient) {
             await webrtcClient.initializeSignaling()
         }
-        
+
         // Join the room
         await webrtcClient.joinRoom(roomName)
-        
+
         document.getElementById('roomStatus').textContent = `Joined room: ${roomName}`
         statusText.textContent = 'Waiting for other players...'
     } catch (error) {
