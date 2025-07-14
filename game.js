@@ -12,7 +12,16 @@ const canvas = document.getElementById('gameCanvas')
 const ctx = canvas.getContext('2d')
 const buttonsContainer = document.getElementById('buttons')
 const startButton = document.getElementById('startButton')
+const continueButton = document.getElementById('continueButton')
 const editorButton = document.getElementById('editorButton')
+const endGameButton = document.getElementById('endGame')
+const gameInfo = document.getElementById('info')
+const hostButton = document.getElementById('hostButton')
+const joinButton = document.getElementById('joinButton')
+const connectionPanel = document.getElementById('connectionPanel')
+const statusText = document.getElementById('statusText')
+const joinRoomButton = document.getElementById('joinRoomButton')
+const webrtcClient = new WebRTCClient(window)
 const tiles = []
 var controls = []
 
@@ -20,6 +29,7 @@ let animTime = 0
 let lastTime = 0
 let currentFrame = 0
 let editing = false
+let gameEnded = false
 let buttons = []
 let characters = []
 let selectedButton = null
@@ -43,9 +53,9 @@ var board = [
 
 async function preloadTiles() {
     for (var i = 0; i < 17; i++) {
-        const img = new Image();
+        const img = new Image()
         img.src = "img/tiles/" + String(i).padStart(3, '0') + ".png"
-        tiles.push(img);
+        tiles.push(img)
     }
 }
 
@@ -69,9 +79,9 @@ async function preloadCharacter(num) {
 
     var img
     for (var i = 0; i < MAX_FRAMES; i++) {
-        img = new Image();
+        img = new Image()
         img.src = "img/characters/" + num + "/idle/" + String(i).padStart(3, '0') + ".png"
-        character.anims.idle.push(img);
+        character.anims.idle.push(img)
     }
 
     img = new Image();
@@ -147,17 +157,17 @@ function drawButton(button) {
     }
 
     if (button == selectedButton) {
-        ctx.strokeStyle = 'green';
-        ctx.lineWidth = "4";
-        ctx.beginPath();
-        ctx.rect(button.x - 2, button.y - 2, button.width + 4, button.height + 4);
-        ctx.stroke();
+        ctx.strokeStyle = 'green'
+        ctx.lineWidth = "4"
+        ctx.beginPath()
+        ctx.rect(button.x - 2, button.y - 2, button.width + 4, button.height + 4)
+        ctx.stroke()
     }
 }
 
 function drawButtons() {
     buttons.forEach(button => {
-        drawButton(button);
+        drawButton(button)
     })
 }
 
@@ -191,7 +201,7 @@ function drawTile(x, y, tileNum,) {
     x = TILE_OFFSET_X + (x * TILE_SIZE)
     y = TILE_OFFSET_Y + (y * TILE_SIZE)
 
-    ctx.drawImage(tiles[tileNum], x, y);
+    ctx.drawImage(tiles[tileNum], x, y)
 }
 
 function drawExit(x, y, targetNum) {
@@ -204,7 +214,7 @@ function drawExit(x, y, targetNum) {
 function drawBoard(delta) {
     for (var y = 0; y < 6; y++) {
         for (var x = 0; x < 6; x++) {
-            drawTile(x, y, board[y][x]);
+            drawTile(x, y, board[y][x])
         }
     }
 }
@@ -221,7 +231,7 @@ function drawCharacter(character, delta) {
 function drawCharacters(delta) {
     characters.forEach(character => {
         drawCharacter(character, delta)
-    });
+    })
 }
 
 function validCommand(command) {
@@ -264,8 +274,12 @@ function move() {
 
 
 function gameLoop(timestamp) {
+    if (gameEnded) {
+        return // Stop the game loop if game has ended
+    }
+    
     if (lastTime == 0) {
-        lastTime = timestamp;
+        lastTime = timestamp
         requestAnimationFrame(gameLoop)
     } else {
         const delta = (timestamp - lastTime) / 1000
@@ -276,7 +290,7 @@ function gameLoop(timestamp) {
         currentFrame = Math.floor(animTime);
 
         ctx.fillStyle = 'black'
-        ctx.strokeStyle = 'black';
+        ctx.strokeStyle = 'black'
         ctx.fillRect(0, 0, canvas.width, canvas.height)
 
         drawBoard(delta)
@@ -297,8 +311,8 @@ function gameLoop(timestamp) {
 
 
 function setCharacterPos(character, x, y) {
-    character.x = TILE_OFFSET_X + x * TILE_SIZE;
-    character.y = TILE_OFFSET_Y + y * TILE_SIZE;
+    character.x = TILE_OFFSET_X + x * TILE_SIZE
+    character.y = TILE_OFFSET_Y + y * TILE_SIZE
 }
 
 
@@ -321,10 +335,71 @@ function onCanvasClick(e) {
 function displayGameArea() {
     //enterFullscreenAndLockOrientation()
     buttonsContainer.style.display = 'none'
+    endGameButton.style.display = 'block'
+    canvas.style.display = 'block'
+    gameEnded = false
     lastTime = 0
     requestAnimationFrame(gameLoop)
 }
 
+function endGame() {
+    if (!confirm("Are you sure you want to end the game?")) {
+        return
+    }
+    
+    saveGameState()
+    gameEnded = true
+    buttonsContainer.style.display = 'flex'
+    endGameButton.style.display = 'none'
+    canvas.style.display = 'none'
+
+    characters = []
+    buttons = []
+    
+    // Reset animation timing
+    animTime = 0
+    lastTime = 0
+    currentFrame = 0
+    
+    // Reset character positions
+    warrior.x = 0
+    warrior.y = 0
+    warrior.targetX = 0
+    warrior.targetY = 0
+    warrior.currentAnim = "idle"
+    
+    // Clear the canvas
+    ctx.fillStyle = 'black'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    
+    // Reset selected button
+    selectedButton = null
+    
+    // Reset editing mode
+    editing = false
+    
+    console.log("Game ended")
+}
+
+function hostGame() {
+    console.log("Hosting game...")
+    
+    // Show connection panel with room interface
+    connectionPanel.style.display = 'block'
+    document.getElementById('roomSection').style.display = 'block'
+    buttonsContainer.style.display = 'none'
+    statusText.textContent = 'Enter a room name to create/join a room'
+}
+
+function joinGame() {
+    console.log("Joining game...")
+    
+    // Show connection panel with room interface
+    connectionPanel.style.display = 'block'
+    document.getElementById('roomSection').style.display = 'block'
+    buttonsContainer.style.display = 'none'
+    statusText.textContent = 'Enter a room name to join an existing room'
+}
 
 function initializeBoard(onClick) {
     for (var y = 0; y < 6; y++) {
@@ -389,11 +464,10 @@ function editMode() {
     buttons = []
 
     let onClick = (button) => {
-        console.log("onClick", button);
-        selectedButton = button;
+        console.log("onClick", button)
+        selectedButton = button
         logLevel()
     }
-
 
     let x = -10
     let y = 128
@@ -475,12 +549,144 @@ function initialize() {
 
     resizeCanvas();
 
-    startButton.addEventListener('click', gameMode);
-    editorButton.addEventListener('click', editMode);
-    window.addEventListener('resize', resizeCanvas);
-    canvas.addEventListener('click', onCanvasClick);
+
+    // Check if there's a saved game and show continue button
+    if (localStorage.getItem('mazeRTC_gameState')) {
+        continueButton.style.display = 'block'
+    }
+
+    startButton.addEventListener('click', gameMode)
+    continueButton.addEventListener('click', () => {
+        if (loadGameState()) {
+            displayGameArea()
+        } else {
+            alert("No saved game found!")
+        }
+    })
+    editorButton.addEventListener('click', editMode)
+    hostButton.addEventListener('click', hostGame)
+    joinButton.addEventListener('click', joinGame)
+    joinRoomButton.addEventListener('click', joinRoom)
+
+    window.addEventListener('resize', resizeCanvas)
+    canvas.addEventListener('click', onCanvasClick)
+    endGameButton.addEventListener('click', endGame)
+    window.addEventListener('keydown', onKeyDown)
+
+    // Make updateConnectionStatus available globally
+    window.updateConnectionStatus = updateConnectionStatus
 }
 
-
-
 window.addEventListener('load', initialize)
+
+function updateConnectionStatus(status) {
+    statusText.textContent = status
+    
+    if (status === 'Connected - Ready to play!') {
+        setTimeout(() => {
+            closeConnectionPanel()
+            gameMode()
+        }, 2000)
+    }
+}
+
+function updateGameInfo(info) {
+    gameInfo.textContent = info
+}
+
+function closeConnectionPanel() {
+    connectionPanel.style.display = 'none'
+    buttonsContainer.style.display = 'flex'
+}
+
+function onKeyDown(e) {
+    console.log("Key down:", e.key)
+    if (e.key === 'ArrowUp') {
+        webrtcClient.sendMessage("{ direction: \"up\" }")
+    }
+
+    if (e.key === 'ArrowDown') {
+        webrtcClient.sendMessage("{ direction: \"down\" }")
+    }
+}
+
+function saveGameState() {
+    const gameState = {
+        characters: characters.map(char => ({
+            name: char.name,
+            x: char.x,
+            y: char.y,
+            targetX: char.targetX,
+            targetY: char.targetY,
+            currentAnim: char.currentAnim
+        })),
+        board: board,
+        animTime: animTime,
+        currentFrame: currentFrame,
+        timestamp: Date.now()
+    }
+    
+    localStorage.setItem('mazeRTC_gameState', JSON.stringify(gameState))
+    console.log("Game state saved")
+}
+
+function loadGameState() {
+    const savedState = localStorage.getItem('mazeRTC_gameState')
+    if (savedState) {
+        try {
+            const gameState = JSON.parse(savedState)
+            
+            // Restore board
+            board = gameState.board
+            
+            // Restore characters
+            characters = gameState.characters.map(charData => {
+                const char = { ...warrior }
+                char.name = charData.name
+                char.x = charData.x
+                char.y = charData.y
+                char.targetX = charData.targetX
+                char.targetY = charData.targetY
+                char.currentAnim = charData.currentAnim
+                return char
+            })
+            
+            // Restore animation state
+            animTime = gameState.animTime || 0
+            currentFrame = gameState.currentFrame || 0
+            
+            console.log("Game state loaded")
+            return true
+        } catch (error) {
+            console.error("Failed to load game state:", error)
+            return false
+        }
+    }
+    return false
+}
+
+async function joinRoom() {
+    const roomName = document.getElementById('roomInput').value.trim()
+    if (!roomName) {
+        alert('Please enter a room name')
+        return
+    }
+    
+    try {
+        statusText.textContent = 'Connecting to signaling server...'
+        
+        // Initialize signaling if not already done
+        if (!webrtcClient.signalingClient) {
+            await webrtcClient.initializeSignaling()
+        }
+        
+        // Join the room
+        await webrtcClient.joinRoom(roomName)
+        
+        document.getElementById('roomStatus').textContent = `Joined room: ${roomName}`
+        statusText.textContent = 'Waiting for other players...'
+    } catch (error) {
+        console.error('Error joining room:', error)
+        statusText.textContent = 'Error joining room'
+    }
+}

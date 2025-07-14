@@ -21,10 +21,126 @@ body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .button {
     font-size: 2rem;
     padding: 1rem 2rem;
     z-index: 10;
+    cursor: pointer;
+    border: 2px solid #333;
+    background: #f0f0f0;
+    border-radius: 5px;
+}
+
+#game-info {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+#endGame {
+    font-size: 1.2rem;
+    padding: 0.8rem 1.5rem;
+    background: #ff4444;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+#endGame:hover {
+    background: #cc3333;
+}
+
+#endGame:active {
+    background: #aa2222;
+    transform: scale(0.95);
+}
+
+/* WebRTC Connection Panel Styles */
+#connectionPanel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    z-index: 1000;
+    font-family: Arial, sans-serif;
+}
+
+#connectionPanel h3 {
+    margin-top: 0;
+    color: #4CAF50;
+    text-align: center;
+}
+
+#connectionPanel h4 {
+    margin-bottom: 10px;
+    color: #FFA500;
+}
+
+#connectionPanel textarea {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    resize: vertical;
+    font-family: monospace;
+    font-size: 12px;
+    background: #f9f9f9;
+}
+
+#connectionPanel button {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    margin: 5px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+#connectionPanel button:hover {
+    background: #45a049;
+}
+
+#connectionPanel button:active {
+    transform: scale(0.95);
+}
+
+#connectionStatus {
+    margin: 15px 0;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    text-align: center;
+}
+
+#statusText {
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+#closeConnectionPanel {
+    background: #f44336 !important;
+    margin-top: 10px;
+}
+
+#closeConnectionPanel:hover {
+    background: #da190b !important;
 }

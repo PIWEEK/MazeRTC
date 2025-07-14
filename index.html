@@ -12,10 +12,40 @@
     <canvas id="gameCanvas" width="1280" height="1024"></canvas>
     <div id="buttons">
         <button id="startButton" class="button">Start Game</button>
+        <button id="continueButton" class="button" style="display: none;">Continue Game</button>
         <button id="editorButton" class="button">Map editor</button>
+        <button id="hostButton" class="button">Host Game</button>
+        <button id="joinButton" class="button">Join Game</button>
     </div>
+
+    <!-- WebRTC Connection Panel -->
+    <div id="connectionPanel" style="display: none;">
+        <h3>WebRTC Connection</h3>
+        
+        <!-- Room-based connection -->
+        <div id="roomSection">
+            <h4>Join/Create Room</h4>
+            <input type="text" id="roomInput" placeholder="Enter room name..." />
+            <button id="joinRoomButton">Join Room</button>
+            <div id="roomStatus"></div>
+            <br>
+        </div>
+        
+        <div id="connectionStatus">
+            <strong>Status:</strong> <span id="statusText">Not connected</span>
+        </div>
+        <br>
+        <button id="closeConnectionPanel">Close</button>
+    </div>
+    
+    <div id="game-info">
+        <div id="info">Game info</div>
+        <button id="endGame" class="button">End Game</button>
+    </div>
+    
+    <script src="client/signaling.js"></script>
+    <script src="client/webrtc.js"></script>
     <script src="levels.js"></script>
     <script src="game.js"></script>
 </body>
-
 </html>

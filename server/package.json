@@ -1,0 +1,26 @@
+{
+  "name": "mazertc",
+  "version": "1.0.0",
+  "description": "- No intermediate server to stablish connection between clients",
+  "homepage": "https://github.com/PIWEEK/MazeRTC#readme",
+  "bugs": {
+    "url": "https://github.com/PIWEEK/MazeRTC/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PIWEEK/MazeRTC.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "debug": "^4.4.1",
+    "express": "^5.1.0",
+    "ws": "^8.18.3"
+  }
+}
