@@ -14,6 +14,7 @@ const buttonsContainer = document.getElementById('buttons')
 const startButton = document.getElementById('startButton')
 const editorButton = document.getElementById('editorButton')
 const tiles = []
+var controls = []
 
 let animTime = 0
 let lastTime = 0
@@ -21,10 +22,12 @@ let currentFrame = 0
 let editing = false
 let buttons = []
 let characters = []
-let targets = []
 let selectedButton = null
 let lastId = -1
 let currentLevel = 0
+let commands = []
+let selectedCharacter = 0
+let moving = false
 
 
 
@@ -87,6 +90,44 @@ async function preloadCharacters() {
         characters.push(character)
     }
 }
+
+async function preloadControl(name) {
+    let control = {}
+
+    let img = new Image();
+    img.src = "img/buttons/" + name + ".png"
+    control.default = img
+
+    img = new Image();
+    img.src = "img/buttons/" + name + "_pressed.png"
+    control.pressed = img
+
+    img = new Image();
+    img.src = "img/buttons/" + name + "_disabled.png"
+    control.disabled = img
+
+    return control
+}
+
+async function preloadControls() {
+    controls = [
+        await preloadControl("up"),
+        await preloadControl("right"),
+        await preloadControl("down"),
+        await preloadControl("left")
+    ]
+}
+
+function addCommand(order) {
+    commands.push(order)
+}
+
+function nextCommand() {
+    if (commands.length > 0) {
+        return commands.shift()
+    }
+}
+
 
 function generateId() {
     //return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
@@ -171,8 +212,9 @@ function drawBoard(delta) {
 
 function drawCharacter(character, delta) {
     if (character.enabled) {
+        currentFrame += character.num * 10
         ctx.drawImage(character.img.exit, character.exitX * TILE_SIZE + TILE_OFFSET_X, character.exitY * TILE_SIZE + TILE_OFFSET_Y);
-        ctx.drawImage(character.anims[character.currentAnim][currentFrame], character.x * TILE_SIZE + TILE_OFFSET_X, character.y * TILE_SIZE + TILE_OFFSET_Y);
+        ctx.drawImage(character.anims[character.currentAnim][currentFrame % character.anims[character.currentAnim].length], character.x * TILE_SIZE + TILE_OFFSET_X, character.y * TILE_SIZE + TILE_OFFSET_Y);
     }
 }
 
@@ -180,6 +222,44 @@ function drawCharacters(delta) {
     characters.forEach(character => {
         drawCharacter(character, delta)
     });
+}
+
+function validCommand(command) {
+    if (command.value == 0) {
+        return (characters[command.character].y > 0)
+    } else if (command.value == 1) {
+        return (characters[command.character].x < 5)
+    } else if (command.value == 2) {
+        return (characters[command.character].y < 5)
+    } else if (command.value == 3) {
+        return (characters[command.character].x > 0)
+    }
+}
+
+function move() {
+    if (commands.length > 0) {
+        moving = true
+        let command = nextCommand()
+        console.log("command", command)
+
+
+        if (validCommand(command)) {
+            if (command.value == 0) {
+                characters[command.character].y -= 1
+            } else if (command.value == 1) {
+                characters[command.character].x += 1
+            } else if (command.value == 2) {
+                characters[command.character].y += 1
+            } else if (command.value == 3) {
+                characters[command.character].x -= 1
+            }
+        }
+
+        //TODO Animate movement
+        setTimeout(() => {
+            moving = false
+        }, 250)
+    }
 }
 
 
@@ -193,11 +273,8 @@ function gameLoop(timestamp) {
         lastTime = timestamp
 
         animTime += delta * 10
-        if (animTime > MAX_FRAMES) {
-            animTime = 0
-        }
-
         currentFrame = Math.floor(animTime);
+
         ctx.fillStyle = 'black'
         ctx.strokeStyle = 'black';
         ctx.fillRect(0, 0, canvas.width, canvas.height)
@@ -205,6 +282,14 @@ function gameLoop(timestamp) {
         drawBoard(delta)
         drawCharacters()
         drawButtons()
+
+
+        if (!moving) {
+            move()
+        }
+
+
+
 
         requestAnimationFrame(gameLoop)
     }
@@ -250,11 +335,29 @@ function initializeBoard(onClick) {
 }
 
 
-function startGame() {
-    buttons = []
-    targets = []
-    loadMap(0)
+function gameMode() {
+    loadLevel(LEVELS[currentLevel]);
 
+    buttons = []
+
+    let onClick = (button) => {
+        addCommand({ character: selectedCharacter, value: button.value })
+    }
+
+
+
+    addButton(controls[0].default, WIDTH / 2 - TILE_SIZE / 4, TILE_SIZE / 2, TILE_SIZE / 2, TILE_SIZE / 2, 0, "playDirection", onClick)
+    addButton(controls[1].default, TILE_SIZE * 8, HEIGHT / 2 - TILE_SIZE / 4, TILE_SIZE / 2, TILE_SIZE / 2, 1, "playDirection", onClick)
+    addButton(controls[2].default, WIDTH / 2 - TILE_SIZE / 4, TILE_SIZE * 7, TILE_SIZE / 2, TILE_SIZE / 2, 2, "playDirection", onClick)
+    addButton(controls[3].default, TILE_SIZE * 1.5, HEIGHT / 2 - TILE_SIZE / 4, TILE_SIZE / 2, TILE_SIZE / 2, 3, "playDirection", onClick)
+
+
+    let onBoardClick = (button) => {
+
+    }
+
+
+    initializeBoard(onBoardClick)
     displayGameArea()
 }
 
@@ -284,7 +387,6 @@ function editMode() {
     loadLevel(LEVELS[currentLevel]);
 
     buttons = []
-    targets = []
 
     let onClick = (button) => {
         console.log("onClick", button);
@@ -369,10 +471,11 @@ function loadLevel(level) {
 function initialize() {
     preloadTiles();
     preloadCharacters();
+    preloadControls();
 
     resizeCanvas();
 
-    startButton.addEventListener('click', startGame);
+    startButton.addEventListener('click', gameMode);
     editorButton.addEventListener('click', editMode);
     window.addEventListener('resize', resizeCanvas);
     canvas.addEventListener('click', onCanvasClick);
