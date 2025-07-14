@@ -235,6 +235,10 @@ function drawCharacters(delta) {
 }
 
 function validCommand(command) {
+    if (!characters[command.character] || !characters[command.character].enabled) {
+        return false;
+    }
+
     if (command.value == 0) {
         return (characters[command.character].y > 0)
     } else if (command.value == 1) {
@@ -252,8 +256,7 @@ function move() {
         let command = nextCommand()
         console.log("command", command)
 
-
-        if (validCommand(command)) {
+        if (command.character === selectedCharacter && validCommand(command)) {
             if (command.value == 0) {
                 characters[command.character].y -= 1
             } else if (command.value == 1) {
@@ -263,18 +266,18 @@ function move() {
             } else if (command.value == 3) {
                 characters[command.character].x -= 1
             }
+
+            const gameState = getGameState()
+            webrtcClient.sendMessage({
+                "type": "gameStateUpdate",
+                "gameState": gameState
+            })
         }
 
         //TODO Animate movement
         setTimeout(() => {
             moving = false
         }, 250)
-
-        const gameState = getGameState()
-        webrtcClient.sendMessage({
-            "type": "gameStateUpdate",
-            "gameState": gameState
-        })
     }
 }
 
@@ -384,8 +387,6 @@ function endGame() {
 
 function hostGame() {
     console.log("Hosting game...")
-    
-    // Show connection panel with room interface
     connectionPanel.style.display = 'block'
     document.getElementById('roomSection').style.display = 'block'
     buttonsContainer.style.display = 'none'
@@ -394,8 +395,6 @@ function hostGame() {
 
 function joinGame() {
     console.log("Joining game...")
-    
-    // Show connection panel with room interface
     connectionPanel.style.display = 'block'
     document.getElementById('roomSection').style.display = 'block'
     buttonsContainer.style.display = 'none'
@@ -414,13 +413,17 @@ function initializeBoard(onClick) {
 function gameMode() {
     loadLevel(LEVELS[currentLevel]);
 
+
+    selectedCharacter = webrtcClient.isHost ? 0 : 1;
+    // FIXME
+    characters[0].enabled = true;
+    characters[1].enabled = true;
+
     buttons = []
 
     let onClick = (button) => {
         addCommand({ character: selectedCharacter, value: button.value })
     }
-
-
 
     addButton(controls[0].default, WIDTH / 2 - TILE_SIZE / 4, TILE_SIZE / 2, TILE_SIZE / 2, TILE_SIZE / 2, 0, "playDirection", onClick)
     addButton(controls[1].default, TILE_SIZE * 8, HEIGHT / 2 - TILE_SIZE / 4, TILE_SIZE / 2, TILE_SIZE / 2, 1, "playDirection", onClick)
@@ -595,14 +598,7 @@ function closeConnectionPanel() {
 }
 
 function onKeyDown(e) {
-    console.log("Key down:", e.key)
-    if (e.key === 'ArrowUp') {
-        webrtcClient.sendMessage("{ direction: \"up\" }")
-    }
-
-    if (e.key === 'ArrowDown') {
-        webrtcClient.sendMessage("{ direction: \"down\" }")
-    }
+    // TODO
 }
 
 function getGameState() {
