@@ -22,6 +22,7 @@ const statusText = document.getElementById('statusText')
 const joinRoomButton = document.getElementById('joinRoomButton')
 const webrtcClient = new WebRTCClient(window)
 const tiles = []
+const SELECTED_CHARACTER_COLOR = '#00ff00'
 var controls = []
 
 let animTime = 0
@@ -38,8 +39,6 @@ let commands = []
 let selectedCharacter = 0
 let moving = false
 
-
-
 var board = [
     [7, 1, 1, 1, 1, 5],
     [4, 0, 0, 0, 0, 2],
@@ -48,7 +47,6 @@ var board = [
     [4, 0, 0, 0, 0, 2],
     [10, 3, 3, 3, 3, 8]
 ]
-
 
 async function preloadTiles() {
     for (var i = 0; i < 17; i++) {
@@ -218,12 +216,28 @@ function drawBoard(delta) {
     }
 }
 
+function addShadow(ctx) {
+    ctx.shadowColor = SELECTED_CHARACTER_COLOR;
+    ctx.shadowBlur = 15;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+}
 
 function drawCharacter(character, delta) {
     if (character.enabled) {
         currentFrame += character.num * 10
+
+        const charX = character.x * TILE_SIZE + TILE_OFFSET_X;
+        const charY = character.y * TILE_SIZE + TILE_OFFSET_Y;
+        const animationIndex = currentFrame % character.anims[character.currentAnim].length
+        
         ctx.drawImage(character.img.exit, character.exitX * TILE_SIZE + TILE_OFFSET_X, character.exitY * TILE_SIZE + TILE_OFFSET_Y);
-        ctx.drawImage(character.anims[character.currentAnim][currentFrame % character.anims[character.currentAnim].length], character.x * TILE_SIZE + TILE_OFFSET_X, character.y * TILE_SIZE + TILE_OFFSET_Y);
+        ctx.save()
+        if (character.num === selectedCharacter) {
+            addShadow(ctx);
+        }
+        ctx.drawImage(character.anims[character.currentAnim][animationIndex], charX, charY);
+        ctx.restore();
     }
 }
 
@@ -433,7 +447,6 @@ function gameMode() {
     let onBoardClick = (button) => {
 
     }
-
 
     initializeBoard(onBoardClick)
     displayGameArea()
