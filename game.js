@@ -15,7 +15,6 @@ const startButton = document.getElementById('startButton')
 const continueButton = document.getElementById('continueButton')
 const editorButton = document.getElementById('editorButton')
 const endGameButton = document.getElementById('endGame')
-const gameInfo = document.getElementById('info')
 const hostButton = document.getElementById('hostButton')
 const joinButton = document.getElementById('joinButton')
 const connectionPanel = document.getElementById('connectionPanel')
@@ -581,10 +580,6 @@ function updateConnectionStatus(status) {
             gameMode()
         }, 2000)
     }
-}
-
-function updateGameInfo(info) {
-    gameInfo.textContent = info
 }
 
 function updateGame(gameState) {
