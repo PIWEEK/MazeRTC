@@ -32,7 +32,7 @@ class WebRTCClient {
                 this.window.updateConnectionStatus('Disconnected from signaling server');
             }
         };
-        
+
         this.signalingClient.onPeerJoined = (peerId, peers) => {
             console.log(`Peer ${peerId} joined`);
             this.peerId = peerId;
@@ -62,6 +62,14 @@ class WebRTCClient {
         };
 
         await this.signalingClient.connect();
+    }
+
+    async getClients() {
+        if (!this.signalingClient) {
+            throw new Error('Signaling client not initialized');
+        }
+        
+        return this.signalingClient.clients;
     }
 
     async joinRoom(roomId) {
@@ -291,6 +299,15 @@ class WebRTCClient {
                 if (this.window && this.window.updateGame) {
                     this.window.updateGame(message.gameState)
                 }
+                return
+            }
+
+            if (message.type === 'updateCharacter') {
+                console.log('Character update received:', message.position)
+                if (this.window && this.window.updateCharacter) {
+                    this.window.updateCharacter(message.character, message.position)
+                }
+                return
             }
         }
 

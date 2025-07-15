@@ -32,6 +32,7 @@ let editing = false
 let gameEnded = false
 let buttons = []
 let characters = []
+let movements = {}
 let selectedButton = null
 let lastId = -1
 let currentLevel = 0
@@ -283,10 +284,12 @@ function move() {
                 characters[command.character].x -= 1
             }
 
-            const gameState = getGameState()
+            console.log("Character moved", characters[command.character])
+
             webrtcClient.sendMessage({
-                "type": "gameStateUpdate",
-                "gameState": gameState
+                type: "updateCharacter",
+                character: selectedCharacter,
+                position: [characters[command.character].x, characters[command.character].y],
             })
         }
 
@@ -297,6 +300,12 @@ function move() {
     }
 }
 
+function updateCharacter(character, position) {
+    console.log("Updating character", position)
+    const [x, y] = position
+    characters[character].x = x
+    characters[character].y = y
+}
 
 function gameLoop(timestamp) {
     if (gameEnded) {
@@ -431,33 +440,110 @@ function initializeBoard(onClick) {
     }
 }
 
-
-function gameMode() {
+async function gameMode() {
     loadLevel(LEVELS[currentLevel]);
 
     // FIXME
     characters[0].enabled = true;
     characters[1].enabled = true;
 
-    buttons = []
+    console.log(webrtcClient)
 
-    let onClick = (button) => {
-        addCommand({ character: selectedCharacter, value: button.value })
+    const clients = await webrtcClient.getClients()
+    const allClientIds = Object.keys(clients)
+    const totalPeers = allClientIds.length
+    const currentClientId = webrtcClient.peerId
+
+    movements = {};
+    
+    // Create random assignment based on number of peers
+    let assignments = [];
+    
+    if (totalPeers === 1) {
+        // Single player: all 4 buttons
+        assignments = [
+            { clientId: currentClientId, buttons: [0, 1, 2, 3] }
+        ];
+    } else if (totalPeers === 2) {
+        // Two players: each gets 2 buttons (randomly assigned)
+        const shuffledButtons = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
+        assignments = [
+            { clientId: allClientIds[0], buttons: shuffledButtons.slice(0, 2) },
+            { clientId: allClientIds[1], buttons: shuffledButtons.slice(2, 4) }
+        ];
+    } else if (totalPeers === 3) {
+        // Three players: randomly assign 2-1-1 distribution
+        const shuffledButtons = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
+        const shuffledClients = [...allClientIds].sort(() => Math.random() - 0.5);
+        assignments = [
+            { clientId: shuffledClients[0], buttons: shuffledButtons.slice(0, 2) },
+            { clientId: shuffledClients[1], buttons: shuffledButtons.slice(2, 3) },
+            { clientId: shuffledClients[2], buttons: shuffledButtons.slice(3, 4) }
+        ];
+    } else if (totalPeers === 4) {
+        // Four or more players: each gets 1 button randomly
+        const shuffledButtons = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
+        const shuffledClients = [...allClientIds].sort(() => Math.random() - 0.5);
+        for (let i = 0; i < 4; i++) {
+            assignments.push({
+                clientId: shuffledClients[i % totalPeers],
+                buttons: [shuffledButtons[i]]
+            });
+        }
     }
 
-    addButton(controls[0].default, WIDTH / 2 - TILE_SIZE / 4, TILE_SIZE / 2, TILE_SIZE / 2, TILE_SIZE / 2, 0, "playDirection", onClick)
-    addButton(controls[1].default, TILE_SIZE * 8, HEIGHT / 2 - TILE_SIZE / 4, TILE_SIZE / 2, TILE_SIZE / 2, 1, "playDirection", onClick)
-    addButton(controls[2].default, WIDTH / 2 - TILE_SIZE / 4, TILE_SIZE * 7, TILE_SIZE / 2, TILE_SIZE / 2, 2, "playDirection", onClick)
-    addButton(controls[3].default, TILE_SIZE * 1.5, HEIGHT / 2 - TILE_SIZE / 4, TILE_SIZE / 2, TILE_SIZE / 2, 3, "playDirection", onClick)
+    // Store assignments in movements object
+    assignments.forEach(assignment => {
+        movements[assignment.clientId] = assignment.buttons;
+    });
 
-    let onBoardClick = (button) => {
+    console.log("game mode movements:", movements);
 
-    }
+    setMovementButtons(movements);
+
+    const gameState = getGameState()
+    webrtcClient.sendMessage({
+        type: 'gameStateUpdate',
+        gameState: gameState
+    })
+
+    let onBoardClick = (button) => {}
 
     initializeBoard(onBoardClick)
     displayGameArea()
 }
 
+function setMovementButtons(movements) {
+    const currentClientId = webrtcClient.signalingClient ? webrtcClient.signalingClient.clientId : 0;
+    const myButtons = movements[currentClientId] || [];
+
+    const buttonConfigs = [
+        { control: controls[0], x: WIDTH / 2 - TILE_SIZE / 4, y: TILE_SIZE / 2, value: 0 }, // UP
+        { control: controls[1], x: TILE_SIZE * 8, y: HEIGHT / 2 - TILE_SIZE / 4, value: 1 }, // RIGHT
+        { control: controls[2], x: WIDTH / 2 - TILE_SIZE / 4, y: TILE_SIZE * 7, value: 2 }, // DOWN
+        { control: controls[3], x: TILE_SIZE * 1.5, y: HEIGHT / 2 - TILE_SIZE / 4, value: 3 } // LEFT
+    ];
+
+    let onClick = (button) => {
+        addCommand({ character: selectedCharacter, value: button.value })
+    }
+
+    buttons = []
+
+    myButtons.forEach(buttonIndex => {
+        const config = buttonConfigs[buttonIndex];
+        addButton(
+            config.control.default, 
+            config.x, 
+            config.y, 
+            TILE_SIZE / 2, 
+            TILE_SIZE / 2, 
+            config.value, 
+            "playDirection", 
+            onClick
+        );
+    });
+}
 
 function logLevel() {
 
@@ -486,7 +572,6 @@ function editMode() {
     buttons = []
 
     let onClick = (button) => {
-        console.log("onClick", button)
         selectedButton = button
         logLevel()
     }
@@ -535,7 +620,6 @@ function editMode() {
 
         logLevel()
     }
-
 
     initializeBoard(onBoardClick)
     displayGameArea()
@@ -594,13 +678,22 @@ function updateConnectionStatus(status) {
     if (status === 'Connected - Ready to play!') {
         setTimeout(() => {
             closeConnectionPanel()
-            gameMode()
+
+            if (webrtcClient.isHost) {
+                gameMode()
+                const gameState = getGameState()
+                webrtcClient.sendMessage({
+                    type: 'gameStateUpdate',
+                    gameState: gameState
+                });
+            }
         }, 2000)
     }
 }
 
 function updateGame(gameState) {
     setGameState(gameState)
+    setMovementButtons(gameState.movements)
     displayGameArea()
 }
 
@@ -627,7 +720,8 @@ function getGameState() {
         board: board,
         animTime: animTime,
         currentFrame: currentFrame,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        movements: movements
     }
 }
 

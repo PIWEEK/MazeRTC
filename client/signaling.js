@@ -11,7 +11,7 @@ class SignalingClient {
         this.onPeerLeft = null;
         this.onOffer = null;
         this.onAnswer = null;
-        this.clients = []
+        this.clients = {};
         this.onIceCandidate = null;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
@@ -62,23 +62,25 @@ class SignalingClient {
 
     handleMessage(data) {
         const { type } = data;
-        
+
         switch (type) {
             case 'joined':
                 this.roomId = data.roomId;
                 this.clientId = data.clientId;
-                this.clients = data.clients;
+                this.clients[this.clientId] = {};
                 console.log(`Joined room ${this.roomId} as ${this.clientId}`);
                 break;
                 
             case 'peer-joined':
                 console.log(`Peer ${data.clientId} joined the room`);
+                this.clients[data.clientId] = {};
                 if (this.onPeerJoined) {
-                    this.onPeerJoined(data.clientId, data.clientsInfo);
+                    this.onPeerJoined(data.clientId, data.clients);
                 }
                 break;
                 
             case 'peer-left':
+                delete this.clients[data.clientId];
                 console.log(`Peer ${data.clientId} left the room`);
                 if (this.onPeerLeft) {
                     this.onPeerLeft(data.clientId);
@@ -198,6 +200,10 @@ class SignalingClient {
                 console.error('Reconnection failed:', error);
             });
         }, this.reconnectDelay * this.reconnectAttempts);
+    }
+
+    getClients() {
+        return this.clients
     }
 }
 
