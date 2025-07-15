@@ -320,14 +320,14 @@ function drawPlates(delta) {
 
 
 function emptyTile(tile) {
-    return true
-    /*
+
+    let ok = true
     characters.forEach(character => {
         if ((character.x == tile.x) && (character.y == tile.y)) {
-            return false
+            ok = false
         }
     })
-    return true*/
+    return ok
 }
 
 function checkMoveDoors(currentTile, targetTile, movement) {
@@ -366,19 +366,19 @@ function validCommand(command) {
     if (command.value == 0) {
         let targetTile = TILES[board[character.y - 1][character.x]]
         let targetCoords = { x: character.x, y: character.y - 1 }
-        return (character.y > 0 && currentTile.canMoveUp && targetTile.canMoveDown && emptyTile(targetTile) && checkMoveDoors(currentCoords, targetCoords, 0))
+        return (character.y > 0 && currentTile.canMoveUp && targetTile.canMoveDown && emptyTile(targetCoords) && checkMoveDoors(currentCoords, targetCoords, 0))
     } else if (command.value == 1) {
         let targetTile = TILES[board[character.y][character.x + 1]]
         let targetCoords = { x: character.x + 1, y: character.y }
-        return (character.x < 5 && currentTile.canMoveRight && targetTile.canMoveLeft && emptyTile(targetTile) && checkMoveDoors(currentCoords, targetCoords, 1))
+        return (character.x < 5 && currentTile.canMoveRight && targetTile.canMoveLeft && emptyTile(targetCoords) && checkMoveDoors(currentCoords, targetCoords, 1))
     } else if (command.value == 2) {
         let targetTile = TILES[board[character.y + 1][character.x]]
         let targetCoords = { x: character.x, y: character.y + 1 }
-        return (character.y < 5 && currentTile.canMoveDown && targetTile.canMoveUp && emptyTile(targetTile) && checkMoveDoors(currentCoords, targetCoords, 2))
+        return (character.y < 5 && currentTile.canMoveDown && targetTile.canMoveUp && emptyTile(targetCoords) && checkMoveDoors(currentCoords, targetCoords, 2))
     } else if (command.value == 3) {
         let targetTile = TILES[board[character.y][character.x - 1]]
         let targetCoords = { x: character.x - 1, y: character.y }
-        return (character.x > 0 && currentTile.canMoveLeft && targetTile.canMoveRight && emptyTile(targetTile) && checkMoveDoors(currentCoords, targetCoords, 3))
+        return (character.x > 0 && currentTile.canMoveLeft && targetTile.canMoveRight && emptyTile(targetCoords) && checkMoveDoors(currentCoords, targetCoords, 3))
     }
 }
 
