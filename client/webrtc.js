@@ -306,7 +306,7 @@ class WebRTCClient {
             if (message.type === 'updateCharacter') {
                 console.log('Character update received:', message.position)
                 if (this.window && this.window.updateCharacter) {
-                    this.window.updateCharacter(message.character, message.position)
+                    this.window.updateCharacter(message.character, message.position, message.enabled, message.currentAnim)
                 }
                 return
             }

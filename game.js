@@ -67,7 +67,8 @@ async function preloadCharacter(num) {
         exitY: 0,
         currentAnim: "idle",
         anims: {
-            "idle": []
+            "idle": [],
+            "exit": []
         },
         img: {
             base: null,
@@ -81,6 +82,8 @@ async function preloadCharacter(num) {
         img.src = "img/characters/" + num + "/idle/" + String(i).padStart(3, '0') + ".png"
         character.anims.idle.push(img)
     }
+
+    character.anims.exit = [character.anims.idle[0]] // Use the first frame of idle as exit animation
 
     img = new Image();
     img.src = "img/characters/" + num + "/base.png"
@@ -225,7 +228,7 @@ function addShadow(ctx) {
 }
 
 function drawCharacter(character, delta) {
-    if (character.enabled) {
+    // if (character.enabled) {
         currentFrame += character.num * 10
 
         const charX = character.x * TILE_SIZE + TILE_OFFSET_X;
@@ -237,9 +240,13 @@ function drawCharacter(character, delta) {
         if (character.num === selectedCharacter) {
             addShadow(ctx);
         }
+
+        if (character.currentAnim === "exit") {
+            ctx.globalAlpha = 0.5;
+        }
         ctx.drawImage(character.anims[character.currentAnim][animationIndex], charX, charY);
         ctx.restore();
-    }
+    // }
 }
 
 function drawCharacters(delta) {
@@ -284,13 +291,22 @@ function move() {
                 characters[command.character].x -= 1
             }
 
+            if (checkCharacterInExit(characters[command.character])) {
+                characters[command.character].currentAnim = "exit"
+                characters[command.character].enabled = false
+            }
+
             console.log("Character moved", characters[command.character])
 
             webrtcClient.sendMessage({
                 type: "updateCharacter",
                 character: selectedCharacter,
                 position: [characters[command.character].x, characters[command.character].y],
+                enabled: characters[command.character].enabled,
+                currentAnim: characters[command.character].currentAnim
             })
+
+            checkGameEnd()
         }
 
         //TODO Animate movement
@@ -300,11 +316,31 @@ function move() {
     }
 }
 
-function updateCharacter(character, position) {
+function checkCharacterInExit(character) {
+    return character.x === character.exitX && character.y === character.exitY;
+}
+
+function checkGameEnd() {
+    const charactersInExit = []
+    for (let i = 0; i < characters.length; i++) {
+        const character = characters[i];
+        if (checkCharacterInExit(character)) {
+            charactersInExit.push(i);
+        }
+    }
+
+    if (charactersInExit.length === characters.length) {
+        console.log("All characters reached their exits! Game over!")
+    }
+}
+
+function updateCharacter(character, position, enabled, currentAnim) {
     console.log("Updating character", position)
     const [x, y] = position
     characters[character].x = x
     characters[character].y = y
+    characters[character].enabled = enabled
+    characters[character].currentAnim = currentAnim
 }
 
 function gameLoop(timestamp) {
