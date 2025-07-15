@@ -8,6 +8,8 @@ const MAX_CHARACTERS = 2
 
 const TILE_OFFSET_EDITOR = 4
 
+const JUMP = 4
+
 const canvas = document.getElementById('gameCanvas')
 const ctx = canvas.getContext('2d')
 const buttonsContainer = document.getElementById('buttons')
@@ -38,10 +40,11 @@ let characters = []
 let movements = {}
 let selectedButton = null
 let lastId = -1
-let currentLevel = 3
+let currentLevel = 4
 let commands = []
 let selectedCharacter = 0
 let moving = false
+let powers = []
 
 var board = [
     [7, 1, 1, 1, 1, 5],
@@ -132,6 +135,28 @@ async function preloadControls() {
     ]
 }
 
+
+async function preloadPower(name) {
+    let power = { selected: false }
+    let img = new Image();
+    img.src = "img/buttons/" + name + ".png"
+    power.default = img
+
+    img = new Image();
+    img.src = "img/buttons/" + name + "_selected.png"
+    power.imgSelected = img
+
+    return power;
+}
+
+
+
+async function preloadPowers() {
+    powers = [
+        await preloadPower("jump")
+    ]
+}
+
 async function preloadDoor(name) {
     let img = new Image();
     img.src = "img/doors/" + name + ".png"
@@ -184,17 +209,21 @@ function generateId() {
     return lastId
 }
 
-function addButton(img, x, y, width, height, value, type, onClick) {
+function addButton(img, imgSelected, x, y, width, height, value, type, onClick) {
     buttons.push(
-        { id: generateId(), img: img, x: x, y: y, width: width, height: height, value: value, type: type, onClick: onClick }
+        { id: generateId(), img: img, imgSelected: imgSelected, x: x, y: y, width: width, height: height, value: value, type: type, onClick: onClick, selected: false }
     )
 }
 
 function drawButton(button) {
-    if (button.img) {
+    if (!button.selected && button.img) {
         ctx.drawImage(button.img, button.x, button.y, button.width, button.height)
+    } else if (button.selected && button.imgSelected) {
+        ctx.drawImage(button.imgSelected, button.x, button.y, button.width, button.height)
     }
 
+
+    // For editor
     if (button == selectedButton) {
         ctx.strokeStyle = 'green'
         ctx.lineWidth = "4"
@@ -350,35 +379,93 @@ function checkMoveDoors(currentTile, targetTile, movement) {
     return ok
 }
 
+function canMove(currentTile, targetTile, movement) {
+    if (!currentTile || !targetTile) {
+        return false
+    }
 
-function validCommand(command) {
+    return currentTile.allowedMoves[movement] && targetTile.allowedMoves[(movement + 2) % 4] && checkMoveDoors(currentTile, targetTile, movement)
+}
+
+
+function getTile(x, y) {
+    if ((x < 0) || (x > 5) || (y < 0) || (y > 5)) {
+        return null
+    }
+
+    return {
+        allowedMoves: TILES[board[y][x]],
+        x: x,
+        y: y
+    }
+}
+
+function validWalk(command) {
+    let character = characters[command.character];
+    let currentTile = getTile(character.x, character.y);
+    let targetTile = null
+    let ok = false
+    if (command.value == 0) {
+        targetTile = getTile(character.x, character.y - 1)
+        ok = canMove(currentTile, targetTile, command.value) && emptyTile(targetTile)
+    } else if (command.value == 1) {
+        targetTile = getTile(character.x + 1, character.y)
+        ok = canMove(currentTile, targetTile, command.value) && emptyTile(targetTile)
+    } else if (command.value == 2) {
+        targetTile = getTile(character.x, character.y + 1)
+        ok = canMove(currentTile, targetTile, command.value) && emptyTile(targetTile)
+    } else if (command.value == 3) {
+        targetTile = getTile(character.x - 1, character.y)
+        ok = canMove(currentTile, targetTile, command.value) && emptyTile(targetTile)
+    }
+    if (ok) {
+        return targetTile
+    }
+}
+
+function validJump(command) {
+    let character = characters[command.character];
+    let currentTile = getTile(character.x, character.y);
+    let targetTile
+    let targetTile2
+    value = command.value - JUMP
+    console.log("jump", value)
+    let ok = false
+    if (value == 0) {
+        targetTile = getTile(character.x, character.y - 1)
+        targetTile2 = getTile(character.x, character.y - 2)
+        ok = canMove(currentTile, targetTile, value) && canMove(targetTile, targetTile2, value) && !emptyTile(targetTile) && emptyTile(targetTile2)
+    } else if (value == 1) {
+        targetTile = getTile(character.x + 1, character.y)
+        targetTile2 = getTile(character.x + 2, character.y)
+        console.log("Character: ", character)
+        console.log("Empty: " + emptyTile(targetTile), targetTile)
+        ok = canMove(currentTile, targetTile, value) && canMove(targetTile, targetTile2, value) && !emptyTile(targetTile) && emptyTile(targetTile2)
+    } else if (value == 2) {
+        targetTile = getTile(character.x, character.y + 1)
+        targetTile2 = getTile(character.x, character.y + 2)
+        ok = canMove(currentTile, targetTile, value) && canMove(targetTile, targetTile2, value) && !emptyTile(targetTile) && emptyTile(targetTile2)
+    } else if (value == 3) {
+        targetTile = getTile(character.x - 1, character.y)
+        targetTile2 = getTile(character.x - 2, character.y)
+        ok = canMove(currentTile, targetTile, value) && canMove(targetTile, targetTile2, value) && !emptyTile(targetTile) && emptyTile(targetTile2)
+    }
+    if (ok) {
+        return targetTile2
+    }
+}
+
+
+function getNextTile(command) {
     let character = characters[command.character];
     if (!character || !character.enabled) {
         return false;
     }
 
-    let currentTile = TILES[board[character.y][character.x]];
-
-    let currentCoords = { x: character.x, y: character.y }
-
-
-
-    if (command.value == 0) {
-        let targetTile = TILES[board[character.y - 1][character.x]]
-        let targetCoords = { x: character.x, y: character.y - 1 }
-        return (character.y > 0 && currentTile.canMoveUp && targetTile.canMoveDown && emptyTile(targetCoords) && checkMoveDoors(currentCoords, targetCoords, 0))
-    } else if (command.value == 1) {
-        let targetTile = TILES[board[character.y][character.x + 1]]
-        let targetCoords = { x: character.x + 1, y: character.y }
-        return (character.x < 5 && currentTile.canMoveRight && targetTile.canMoveLeft && emptyTile(targetCoords) && checkMoveDoors(currentCoords, targetCoords, 1))
-    } else if (command.value == 2) {
-        let targetTile = TILES[board[character.y + 1][character.x]]
-        let targetCoords = { x: character.x, y: character.y + 1 }
-        return (character.y < 5 && currentTile.canMoveDown && targetTile.canMoveUp && emptyTile(targetCoords) && checkMoveDoors(currentCoords, targetCoords, 2))
-    } else if (command.value == 3) {
-        let targetTile = TILES[board[character.y][character.x - 1]]
-        let targetCoords = { x: character.x - 1, y: character.y }
-        return (character.x > 0 && currentTile.canMoveLeft && targetTile.canMoveRight && emptyTile(targetCoords) && checkMoveDoors(currentCoords, targetCoords, 3))
+    if (command.value < JUMP) {
+        return validWalk(command);
+    } else if (command.value >= JUMP) {
+        return validJump(command);
     }
 }
 
@@ -404,32 +491,28 @@ function move() {
     if (commands.length > 0) {
         moving = true
         let command = nextCommand()
+        if (command.character === selectedCharacter) {
+            let targetTile = getNextTile(command)
+            if (targetTile) {
+                characters[command.character].x = targetTile.x
+                characters[command.character].y = targetTile.y
 
-        if (command.character === selectedCharacter && validCommand(command)) {
-            if (command.value == 0) {
-                characters[command.character].y -= 1
-            } else if (command.value == 1) {
-                characters[command.character].x += 1
-            } else if (command.value == 2) {
-                characters[command.character].y += 1
-            } else if (command.value == 3) {
-                characters[command.character].x -= 1
+
+                if (checkCharacterInExit(characters[command.character])) {
+                    characters[command.character].currentAnim = "exit"
+                    characters[command.character].enabled = false
+                }
+
+                webrtcClient.sendMessage({
+                    type: "updateCharacter",
+                    character: selectedCharacter,
+                    position: [characters[command.character].x, characters[command.character].y],
+                    enabled: characters[command.character].enabled,
+                    currentAnim: characters[command.character].currentAnim
+                })
+
+                checkGameEnd()
             }
-
-            if (checkCharacterInExit(characters[command.character])) {
-                characters[command.character].currentAnim = "exit"
-                characters[command.character].enabled = false
-            }
-
-            webrtcClient.sendMessage({
-                type: "updateCharacter",
-                character: selectedCharacter,
-                position: [characters[command.character].x, characters[command.character].y],
-                enabled: characters[command.character].enabled,
-                currentAnim: characters[command.character].currentAnim
-            })
-
-            checkGameEnd()
         }
 
         //TODO Animate movement
@@ -596,7 +679,7 @@ function joinGame() {
 function initializeBoard(onClick) {
     for (var y = 0; y < 6; y++) {
         for (var x = 0; x < 6; x++) {
-            addButton(null, x * TILE_SIZE + TILE_OFFSET_X, y * TILE_SIZE + TILE_OFFSET_Y, TILE_SIZE, TILE_SIZE, null, "tile", onClick)
+            addButton(null, null, x * TILE_SIZE + TILE_OFFSET_X, y * TILE_SIZE + TILE_OFFSET_Y, TILE_SIZE, TILE_SIZE, null, "tile", onClick)
         }
     }
 }
@@ -679,14 +762,18 @@ function setMovementButtons(movements) {
     const myButtons = movements[currentClientId] || [];
 
     const buttonConfigs = [
-        { control: controls[0], x: WIDTH / 2 - TILE_SIZE / 4, y: TILE_SIZE / 2, value: 0 }, // UP
+        { control: controls[0], x: WIDTH / 2 - TILE_SIZE / 4, y: 0, value: 0 }, // UP
         { control: controls[1], x: TILE_SIZE * 8, y: HEIGHT / 2 - TILE_SIZE / 4, value: 1 }, // RIGHT
         { control: controls[2], x: WIDTH / 2 - TILE_SIZE / 4, y: TILE_SIZE * 7, value: 2 }, // DOWN
-        { control: controls[3], x: TILE_SIZE * 1.5, y: HEIGHT / 2 - TILE_SIZE / 4, value: 3 } // LEFT
+        { control: controls[3], x: TILE_SIZE, y: HEIGHT / 2 - TILE_SIZE / 4, value: 3 }, // LEFT
     ];
 
     let onClick = (button) => {
-        addCommand({ character: selectedCharacter, value: button.value })
+        if (powers[0].selected) {
+            addCommand({ character: selectedCharacter, value: button.value + JUMP })
+        } else {
+            addCommand({ character: selectedCharacter, value: button.value })
+        }
     }
 
     buttons = []
@@ -695,15 +782,37 @@ function setMovementButtons(movements) {
         const config = buttonConfigs[buttonIndex];
         addButton(
             config.control.default,
+            null,
             config.x,
             config.y,
-            TILE_SIZE / 2,
-            TILE_SIZE / 2,
+            TILE_SIZE,
+            TILE_SIZE,
             config.value,
             "playDirection",
             onClick
         );
     });
+
+
+    let onJump = (button) => {
+        button.selected = !button.selected
+        powers[0].selected = !powers[0].selected
+    }
+
+    // Jump button
+    addButton(
+        powers[0].default,
+        powers[0].imgSelected,
+        TILE_SIZE * 9,
+        0,
+        TILE_SIZE,
+        TILE_SIZE,
+        4,
+        "jump",
+        onJump
+    );
+
+
 }
 
 function logLevel() {
@@ -805,7 +914,7 @@ function editMode() {
     let x = 15
     let y = 128
     for (i = 0; i < 17; i++) {
-        addButton(tiles[i], x, y, 50, 50, i, "editTile", onClick)
+        addButton(tiles[i], null, x, y, 50, 50, i, "editTile", onClick)
         x += 60
         if (x > 200) {
             x = 15
@@ -819,8 +928,8 @@ function editMode() {
     y += 60
 
     characters.forEach(character => {
-        addButton(character.img.base, x, y, 50, 50, character.num, "editCharacter", onClick)
-        addButton(character.img.exit, x + 60, y, 50, 50, character.num, "editExit", onClick)
+        addButton(character.img.base, null, x, y, 50, 50, character.num, "editCharacter", onClick)
+        addButton(character.img.exit, null, x + 60, y, 50, 50, character.num, "editExit", onClick)
         x += 120
         if (x > 200) {
             x = 15
@@ -832,7 +941,7 @@ function editMode() {
     y += 60
 
     for (i = 0; i < doorsImgs.closed.length; i++) {
-        addButton(doorsImgs.closed[i], x, y, 50, 50, i, "editDoor", onClick)
+        addButton(doorsImgs.closed[i], null, x, y, 50, 50, i, "editDoor", onClick)
         x += 60
         if (x > 200) {
             x = 15
@@ -843,7 +952,7 @@ function editMode() {
     x = 15
 
     for (i = 0; i < doorsImgs.plates.length; i++) {
-        addButton(doorsImgs.plates[i], x, y, 50, 50, i, "editPlate", onClick)
+        addButton(doorsImgs.plates[i], null, x, y, 50, 50, i, "editPlate", onClick)
         x += 60
         if (x > 200) {
             x = 15
@@ -924,6 +1033,7 @@ function initialize() {
     preloadTiles();
     preloadCharacters();
     preloadControls();
+    preloadPowers();
     preloadDoors();
 
     resizeCanvas();
