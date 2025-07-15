@@ -327,9 +327,6 @@ function gameLoop(timestamp) {
             move()
         }
 
-
-
-
         requestAnimationFrame(gameLoop)
     }
 }
@@ -348,6 +345,15 @@ function coordsToTile(x, y) {
 function onCanvasClick(e) {
     console.log(e.offsetX, e.offsetY)
     console.log(coordsToTile(e.offsetX, e.offsetY))
+
+    for (let i = 0; i < characters.length; i++) {
+        const [x, y] = coordsToTile(e.offsetX, e.offsetY);
+        const character = characters[i];
+        if (character.x === x && character.y === y) {
+            selectedCharacter = i;
+            break
+        }
+    }
 
     for (var i = 0; i < buttons.length; i++) {
         if (pointInRect(e.offsetX, e.offsetY, buttons[i].x, buttons[i].y, buttons[i].width, buttons[i].height)) {
@@ -429,8 +435,6 @@ function initializeBoard(onClick) {
 function gameMode() {
     loadLevel(LEVELS[currentLevel]);
 
-
-    selectedCharacter = webrtcClient.isHost ? 0 : 1;
     // FIXME
     characters[0].enabled = true;
     characters[1].enabled = true;
@@ -445,7 +449,6 @@ function gameMode() {
     addButton(controls[1].default, TILE_SIZE * 8, HEIGHT / 2 - TILE_SIZE / 4, TILE_SIZE / 2, TILE_SIZE / 2, 1, "playDirection", onClick)
     addButton(controls[2].default, WIDTH / 2 - TILE_SIZE / 4, TILE_SIZE * 7, TILE_SIZE / 2, TILE_SIZE / 2, 2, "playDirection", onClick)
     addButton(controls[3].default, TILE_SIZE * 1.5, HEIGHT / 2 - TILE_SIZE / 4, TILE_SIZE / 2, TILE_SIZE / 2, 3, "playDirection", onClick)
-
 
     let onBoardClick = (button) => {
 
@@ -535,8 +538,6 @@ function editMode() {
 
 
     initializeBoard(onBoardClick)
-
-
     displayGameArea()
 
     buttons[0].onClick(buttons[0])

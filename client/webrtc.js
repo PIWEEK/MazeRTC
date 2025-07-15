@@ -12,7 +12,7 @@ class WebRTCClient {
         this.signalingClient = null
         this.currentRoomId = null
         this.peerId = null
-        
+        this.peers = []
         this.configuration = {}
     }
 
@@ -33,9 +33,10 @@ class WebRTCClient {
             }
         };
         
-        this.signalingClient.onPeerJoined = (peerId) => {
+        this.signalingClient.onPeerJoined = (peerId, peers) => {
             console.log(`Peer ${peerId} joined`);
             this.peerId = peerId;
+            this.peers = peers
             // If we're the host, create an offer
             if (this.isHost) {
                 this.createOfferForPeer(peerId);
@@ -51,6 +52,7 @@ class WebRTCClient {
 
         this.signalingClient.onAnswer = async (fromId, answer) => {
             console.log(`Received answer from ${fromId}`);
+
             await this.handleAnswer(JSON.stringify(answer));
         };
 
@@ -68,7 +70,7 @@ class WebRTCClient {
         }
         
         this.currentRoomId = roomId;
-        this.isHost = true; // First person to join becomes host
+        this.isHost = true // FIXME
         this.signalingClient.joinRoom(roomId);
         
         if (this.window && this.window.updateConnectionStatus) {

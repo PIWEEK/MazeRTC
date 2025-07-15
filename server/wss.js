@@ -86,19 +86,22 @@ function handleJoin(ws, roomId, clientId) {
     room.add(clientInfo)
     clients.set(ws, clientInfo)
 
+    const clientsInfo = Array.from(room).map(client => ({
+        id: client.id,
+        isYou: client.ws === ws
+    }))
+
     ws.send(JSON.stringify({
         type: 'joined',
         roomId,
         clientId,
-        clients: Array.from(room).map(client => ({
-            id: client.id,
-            isYou: client.ws === ws
-        }))
+        clientsInfo
     }))
 
     broadcastToRoom(roomId, {
         type: 'peer-joined',
-        clientId
+        clientId,
+        clientsInfo
     }, ws)
     
     debug(`Client ${clientId} joined room ${roomId}. Room size: ${room.size}`)

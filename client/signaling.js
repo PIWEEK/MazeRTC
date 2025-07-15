@@ -11,6 +11,7 @@ class SignalingClient {
         this.onPeerLeft = null;
         this.onOffer = null;
         this.onAnswer = null;
+        this.clients = []
         this.onIceCandidate = null;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
@@ -66,13 +67,14 @@ class SignalingClient {
             case 'joined':
                 this.roomId = data.roomId;
                 this.clientId = data.clientId;
+                this.clients = data.clients;
                 console.log(`Joined room ${this.roomId} as ${this.clientId}`);
                 break;
                 
             case 'peer-joined':
                 console.log(`Peer ${data.clientId} joined the room`);
                 if (this.onPeerJoined) {
-                    this.onPeerJoined(data.clientId);
+                    this.onPeerJoined(data.clientId, data.clientsInfo);
                 }
                 break;
                 
