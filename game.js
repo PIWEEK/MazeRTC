@@ -23,7 +23,10 @@ const joinRoomButton = document.getElementById('joinRoomButton')
 const webrtcClient = new WebRTCClient(window)
 const tiles = []
 const SELECTED_CHARACTER_COLOR = '#00ff00'
-var controls = []
+let controls = []
+let doorsImgs = []
+let doors = []
+let plates = []
 
 let animTime = 0
 let lastTime = 0
@@ -129,6 +132,41 @@ async function preloadControls() {
     ]
 }
 
+async function preloadDoor(name) {
+    let img = new Image();
+    img.src = "img/doors/" + name + ".png"
+    return img
+}
+
+async function preloadDoors() {
+    doorsImgs = {
+        closed: [
+            await preloadDoor("red_up"),
+            await preloadDoor("red_right"),
+            await preloadDoor("red_down"),
+            await preloadDoor("red_left"),
+            await preloadDoor("blue_up"),
+            await preloadDoor("blue_right"),
+            await preloadDoor("blue_down"),
+            await preloadDoor("blue_left"),
+        ],
+        open: [
+            await preloadDoor("red_up_open"),
+            await preloadDoor("red_right_open"),
+            await preloadDoor("red_down_open"),
+            await preloadDoor("red_left_open"),
+            await preloadDoor("blue_up_open"),
+            await preloadDoor("blue_right_open"),
+            await preloadDoor("blue_down_open"),
+            await preloadDoor("blue_left_open"),
+        ],
+        plates: [
+            await preloadDoor("red_key"),
+            await preloadDoor("blue_key")
+        ]
+    }
+}
+
 function addCommand(order) {
     commands.push(order)
 }
@@ -229,23 +267,23 @@ function addShadow(ctx) {
 
 function drawCharacter(character, delta) {
     // if (character.enabled) {
-        currentFrame += character.num * 10
+    currentFrame += character.num * 10
 
-        const charX = character.x * TILE_SIZE + TILE_OFFSET_X;
-        const charY = character.y * TILE_SIZE + TILE_OFFSET_Y;
-        const animationIndex = currentFrame % character.anims[character.currentAnim].length
+    const charX = character.x * TILE_SIZE + TILE_OFFSET_X;
+    const charY = character.y * TILE_SIZE + TILE_OFFSET_Y;
+    const animationIndex = currentFrame % character.anims[character.currentAnim].length
 
-        ctx.drawImage(character.img.exit, character.exitX * TILE_SIZE + TILE_OFFSET_X, character.exitY * TILE_SIZE + TILE_OFFSET_Y);
-        ctx.save()
-        if (character.num === selectedCharacter) {
-            addShadow(ctx);
-        }
 
-        if (character.currentAnim === "exit") {
-            ctx.globalAlpha = 0.5;
-        }
-        ctx.drawImage(character.anims[character.currentAnim][animationIndex], charX, charY);
-        ctx.restore();
+    ctx.save()
+    if (character.num === selectedCharacter) {
+        addShadow(ctx);
+    }
+
+    if (character.currentAnim === "exit") {
+        ctx.globalAlpha = 0.5;
+    }
+    ctx.drawImage(character.anims[character.currentAnim][animationIndex], charX, charY);
+    ctx.restore();
     // }
 }
 
@@ -255,6 +293,66 @@ function drawCharacters(delta) {
     })
 }
 
+
+function drawExits(delta) {
+    characters.forEach(character => {
+        if (character.enabled) {
+            ctx.drawImage(character.img.exit, character.exitX * TILE_SIZE + TILE_OFFSET_X, character.exitY * TILE_SIZE + TILE_OFFSET_Y);
+        }
+    })
+}
+
+function drawDoors(delta) {
+    doors.forEach(door => {
+        let img = door.img
+        if (door.open) {
+            img = door.imgOpen
+        }
+        ctx.drawImage(img, door.x * TILE_SIZE + TILE_OFFSET_X, door.y * TILE_SIZE + TILE_OFFSET_Y);
+    })
+}
+
+function drawPlates(delta) {
+    plates.forEach(plate => {
+        ctx.drawImage(plate.img, plate.x * TILE_SIZE + TILE_OFFSET_X, plate.y * TILE_SIZE + TILE_OFFSET_Y);
+    })
+}
+
+
+function emptyTile(tile) {
+    return true
+    /*
+    characters.forEach(character => {
+        if ((character.x == tile.x) && (character.y == tile.y)) {
+            return false
+        }
+    })
+    return true*/
+}
+
+function checkMoveDoors(currentTile, targetTile, movement) {
+
+    var ok = true
+
+    doors.forEach(d => {
+        if ((d.x == currentTile.x) && (d.y == currentTile.y)) {
+            console.log("same", d, movement)
+            if ((!d.open) && (d.value == movement)) {
+                ok = false
+            }
+        }
+
+        if ((d.x == targetTile.x) && (d.y == targetTile.y)) {
+            console.log("target", d, movement, movement + 2 % 3)
+            if ((!d.open) && (d.value == (movement + 2) % 4)) {
+                ok = false
+            }
+        }
+    })
+    return ok
+}
+
+
 function validCommand(command) {
     let character = characters[command.character];
     if (!character || !character.enabled) {
@@ -263,15 +361,45 @@ function validCommand(command) {
 
     let currentTile = TILES[board[character.y][character.x]];
 
+    let currentCoords = { x: character.x, y: character.y }
+
+
+
     if (command.value == 0) {
-        return (character.y > 0 && currentTile.canMoveUp && TILES[board[character.y - 1][character.x]].canMoveDown)
+        let targetTile = TILES[board[character.y - 1][character.x]]
+        let targetCoords = { x: character.x, y: character.y - 1 }
+        return (character.y > 0 && currentTile.canMoveUp && targetTile.canMoveDown && emptyTile(targetTile) && checkMoveDoors(currentCoords, targetCoords, 0))
     } else if (command.value == 1) {
-        return (character.x < 5 && currentTile.canMoveRight && TILES[board[character.y][character.x + 1]].canMoveLeft)
+        let targetTile = TILES[board[character.y][character.x + 1]]
+        let targetCoords = { x: character.x + 1, y: character.y }
+        return (character.x < 5 && currentTile.canMoveRight && targetTile.canMoveLeft && emptyTile(targetTile) && checkMoveDoors(currentCoords, targetCoords, 1))
     } else if (command.value == 2) {
-        return (character.y < 5 && currentTile.canMoveDown && TILES[board[character.y + 1][character.x]].canMoveUp)
+        let targetTile = TILES[board[character.y + 1][character.x]]
+        let targetCoords = { x: character.x, y: character.y + 1 }
+        return (character.y < 5 && currentTile.canMoveDown && targetTile.canMoveUp && emptyTile(targetTile) && checkMoveDoors(currentCoords, targetCoords, 2))
     } else if (command.value == 3) {
-        return (character.x > 0 && currentTile.canMoveLeft && TILES[board[character.y][character.x - 1]].canMoveRight)
+        let targetTile = TILES[board[character.y][character.x - 1]]
+        let targetCoords = { x: character.x - 1, y: character.y }
+        return (character.x > 0 && currentTile.canMoveLeft && targetTile.canMoveRight && emptyTile(targetTile) && checkMoveDoors(currentCoords, targetCoords, 3))
     }
+}
+
+
+function checkDoors() {
+
+    const openColors = new Set()
+
+    plates.forEach(plate => {
+        characters.forEach(character => {
+            if ((character.enabled) && (character.x == plate.x && character.y == plate.y)) {
+                openColors.add(plate.value)
+            }
+        })
+    })
+
+    doors.forEach(door => {
+        door.open = openColors.has(door.value % 4)
+    })
 }
 
 function move() {
@@ -312,6 +440,7 @@ function move() {
         //TODO Animate movement
         setTimeout(() => {
             moving = false
+            checkDoors()
         }, 250)
     }
 }
@@ -341,6 +470,7 @@ function updateCharacter(character, position, enabled, currentAnim) {
     characters[character].y = y
     characters[character].enabled = enabled
     characters[character].currentAnim = currentAnim
+    checkDoors()
 }
 
 function gameLoop(timestamp) {
@@ -364,6 +494,9 @@ function gameLoop(timestamp) {
         ctx.fillRect(0, 0, canvas.width, canvas.height)
 
         drawBoard(delta)
+        drawExits()
+        drawDoors()
+        drawPlates()
         drawCharacters()
         drawButtons()
 
@@ -491,10 +624,10 @@ async function gameMode() {
     const currentClientId = webrtcClient.peerId
 
     movements = {};
-    
+
     // Create random assignment based on number of peers
     let assignments = [];
-    
+
     if (totalPeers === 1) {
         // Single player: all 4 buttons
         assignments = [
@@ -543,7 +676,7 @@ async function gameMode() {
         gameState: gameState
     })
 
-    let onBoardClick = (button) => {}
+    let onBoardClick = (button) => { }
 
     initializeBoard(onBoardClick)
     displayGameArea()
@@ -569,13 +702,13 @@ function setMovementButtons(movements) {
     myButtons.forEach(buttonIndex => {
         const config = buttonConfigs[buttonIndex];
         addButton(
-            config.control.default, 
-            config.x, 
-            config.y, 
-            TILE_SIZE / 2, 
-            TILE_SIZE / 2, 
-            config.value, 
-            "playDirection", 
+            config.control.default,
+            config.x,
+            config.y,
+            TILE_SIZE / 2,
+            TILE_SIZE / 2,
+            config.value,
+            "playDirection",
             onClick
         );
     });
@@ -596,42 +729,134 @@ function logLevel() {
         levelTxt += "    exitY: " + character.exitY + ",\n"
         levelTxt += "    },\n"
     })
+    levelTxt += "  ],\n"
+
+    levelTxt += "  doors: [\n"
+    doors.forEach(door => {
+        levelTxt += "    {\n"
+        levelTxt += "    value: " + door.x + ",\n"
+        levelTxt += "    x: " + door.x + ",\n"
+        levelTxt += "    y: " + door.y + ",\n"
+        levelTxt += "    },\n"
+    })
+    levelTxt += "  ],\n"
+
+    levelTxt += "  plates: [\n"
+    plates.forEach(plate => {
+        levelTxt += "    {\n"
+        levelTxt += "    value: " + plate.value + ",\n"
+        levelTxt += "    x: " + plate.x + ",\n"
+        levelTxt += "    y: " + plate.y + ",\n"
+        levelTxt += "    },\n"
+    })
     levelTxt += "  ]\n"
+
+
+
+
     levelTxt += "}\n"
 
     console.log(levelTxt)
 }
 
+function addDoor(x, y, value, open) {
+    doors.push({ x: x, y: y, img: doorsImgs.closed[value], imgOpen: doorsImgs.open[value], value: value, open: open })
+}
+
+function addRemoveDoor(x, y, value, open) {
+    let doorPos = -1
+    for (i = 0; i < doors.length; i++) {
+        if ((doors[i].x == x) && (doors[i].y == y)) {
+            doorPos = i
+            break
+        }
+    }
+
+    if (doorPos != -1) {
+        doors.splice(doorPos, 1)
+    } else {
+        addDoor(x, y, value, open)
+    }
+}
+
+function addPlate(x, y, value) {
+    plates.push({ x: x, y: y, img: doorsImgs.plates[value], value: value })
+}
+
+function addRemovePlate(x, y, value) {
+    let platePos = -1
+    for (i = 0; i < plates.length; i++) {
+        if ((plates[i].x == x) && (plates[i].y == y)) {
+            platePos = i
+            break
+        }
+    }
+
+    if (platePos != -1) {
+        plates.splice(platePos, 1)
+    } else {
+        addPlate(x, y, value)
+    }
+}
+
 function editMode() {
+    buttons = []
     loadLevel(LEVELS[currentLevel]);
 
-    buttons = []
 
     let onClick = (button) => {
         selectedButton = button
         logLevel()
     }
 
-    let x = -10
+    let x = 15
     let y = 128
     for (i = 0; i < 17; i++) {
+        addButton(tiles[i], x, y, 50, 50, i, "editTile", onClick)
         x += 60
-        if (x > 180) {
-            x = 50
+        if (x > 200) {
+            x = 15
             y += 60
         }
-        addButton(tiles[i], x, y, 50, 50, i, "editTile", onClick)
+
     }
 
 
-
-    y += 120
+    x = 15
+    y += 60
 
     characters.forEach(character => {
-        addButton(character.img.base, 50, y, 50, 50, character.num, "editCharacter", onClick)
-        addButton(character.img.exit, 110, y, 50, 50, character.num, "editExit", onClick)
-        y += 60
+        addButton(character.img.base, x, y, 50, 50, character.num, "editCharacter", onClick)
+        addButton(character.img.exit, x + 60, y, 50, 50, character.num, "editExit", onClick)
+        x += 120
+        if (x > 200) {
+            x = 15
+            y += 60
+        }
     })
+
+    x = 15
+    y += 60
+
+    for (i = 0; i < doorsImgs.closed.length; i++) {
+        addButton(doorsImgs.closed[i], x, y, 50, 50, i, "editDoor", onClick)
+        x += 60
+        if (x > 200) {
+            x = 15
+            y += 60
+        }
+    }
+
+    x = 15
+
+    for (i = 0; i < doorsImgs.plates.length; i++) {
+        addButton(doorsImgs.plates[i], x, y, 50, 50, i, "editPlate", onClick)
+        x += 60
+        if (x > 200) {
+            x = 15
+            y += 60
+        }
+    }
 
 
 
@@ -651,6 +876,10 @@ function editMode() {
         } else if (selectedButton.type == "editExit") {
             characters[selectedButton.value].exitX = bx
             characters[selectedButton.value].exitY = by
+        } else if (selectedButton.type == "editDoor") {
+            addRemoveDoor(bx, by, selectedButton.value)
+        } else if (selectedButton.type == "editPlate") {
+            addRemovePlate(bx, by, selectedButton.value)
         }
 
 
@@ -664,6 +893,10 @@ function editMode() {
 }
 
 function loadLevel(level) {
+
+    plates = []
+    doors = []
+
     let i = 0;
     for (var y = 0; y < 6; y++) {
         for (var x = 0; x < 6; x++) {
@@ -680,12 +913,26 @@ function loadLevel(level) {
         characters[i].exitY = level.characters[i].exitY
     }
 
+
+    if (level.doors) {
+        level.doors.forEach(door => {
+            addDoor(door.x, door.y, door.value, door.open)
+        })
+    }
+
+    if (level.plates) {
+        level.plates.forEach(plate => {
+            addPlate(plate.x, plate.y, plate.value)
+        })
+    }
 }
 
 function initialize() {
     preloadTiles();
     preloadCharacters();
     preloadControls();
+    preloadDoors();
+
     resizeCanvas();
 
     // Check if there's a saved game and show continue button
@@ -753,6 +1000,18 @@ function getGameState() {
             exitY: char.exitY,
             currentAnim: char.currentAnim
         })),
+        doors: doors.map(door => ({
+            value: door.value,
+            x: door.x,
+            y: door.y,
+            open: door.open
+        })),
+        plates: plates.map(plate => ({
+            value: plate.value,
+            x: plate.x,
+            y: plate.y
+        })),
+
         board: board,
         animTime: animTime,
         currentFrame: currentFrame,
@@ -775,6 +1034,22 @@ function setGameState(gameState) {
                 characters[index].exitY = charData.exitY
                 characters[index].currentAnim = charData.currentAnim
             }
+        })
+    }
+
+    doors = []
+
+    if (gameState.doors && gameState.doors.length > 0) {
+        gameState.doors.forEach((doorData) => {
+            addDoor(doorData.x, doorData.y, doorData.value, doorData.open)
+        })
+    }
+
+    plates = []
+
+    if (gameState.plates && gameState.plates.length > 0) {
+        gameState.plates.forEach((plateData) => {
+            addPlate(plateData.x, plateData.y, plateData.value)
         })
     }
 

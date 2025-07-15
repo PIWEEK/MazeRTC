@@ -1,4 +1,5 @@
 const WSSPORT = 8090 // FIXME use envvar
+const WSHOST = "192.168.1.50" // FIXME use envvar
 
 class WebRTCClient {
     constructor(window) {
@@ -16,7 +17,7 @@ class WebRTCClient {
         this.configuration = {}
     }
 
-    async initializeSignaling(signalingServerUrl = `ws://localhost:${WSSPORT}`) {
+    async initializeSignaling(signalingServerUrl = `ws://${WSHOST}:${WSSPORT}`) {
         this.signalingClient = new SignalingClient(signalingServerUrl);
 
         this.signalingClient.onConnected = () => {
@@ -42,7 +43,7 @@ class WebRTCClient {
                 this.createOfferForPeer(peerId);
             }
         };
-        
+
         this.signalingClient.onOffer = async (fromId, offer) => {
             console.log(`Received offer from ${fromId}`);
             this.peerId = fromId;
@@ -77,11 +78,11 @@ class WebRTCClient {
         if (!this.signalingClient) {
             throw new Error('Signaling client not initialized');
         }
-        
+
         this.currentRoomId = roomId;
         this.isHost = true // FIXME
         this.signalingClient.joinRoom(roomId);
-        
+
         if (this.window && this.window.updateConnectionStatus) {
             this.window.updateConnectionStatus(`Joined room ${roomId}`);
         }
@@ -101,42 +102,42 @@ class WebRTCClient {
     async createOffer() {
         this.connectionAttempts++
         this.isHost = true
-        
+
         // Clean up any existing connection
         if (this.connection) {
             this.connection.close()
         }
-        
+
         this.connection = new RTCPeerConnection(this.configuration)
         this.setupPeerConnection()
 
         // FIXME custom channels
         this.dataChannel = this.connection.createDataChannel('DATA:CHANNEL', { ordered: true })
         this.setupDataChannel()
-        
+
         try {
             const offer = await this.connection.createOffer({
                 offerToReceiveAudio: false,
                 offerToReceiveVideo: false
             })
             await this.connection.setLocalDescription(offer)
-            
+
             return offer
         } catch (error) {
             console.error('Error creating offer:', error)
             throw error
         }
     }
-    
+
     async handleOffer(offerString) {
         this.connectionAttempts++
         this.isHost = false
-        
+
         // Clean up any existing connection
         if (this.connection) {
             this.connection.close()
         }
-        
+
         this.connection = new RTCPeerConnection(this.configuration)
         this.setupPeerConnection()
 
@@ -144,14 +145,14 @@ class WebRTCClient {
             this.dataChannel = event.channel
             this.setupDataChannel()
         }
-        
+
         try {
             const offer = JSON.parse(offerString)
             await this.connection.setRemoteDescription(offer)
-            
+
             const answer = await this.connection.createAnswer()
             await this.connection.setLocalDescription(answer)
-            
+
             return answer
         } catch (error) {
             console.error('Error handling offer:', error)
@@ -180,10 +181,10 @@ class WebRTCClient {
             if (this.window && this.window.updateConnectionStatus) {
                 this.window.updateConnectionStatus(`Retrying connection... Attempt ${this.connectionAttempts + 1}/${this.maxConnectionAttempts}`)
             }
-            
+
             // Wait a bit before retrying
             await new Promise(resolve => setTimeout(resolve, 2000))
-            
+
             if (this.isHost) {
                 return await this.createOffer()
             }
@@ -208,11 +209,11 @@ class WebRTCClient {
                 console.log('ICE candidate gathering complete')
             }
         }
-        
+
         this.connection.onconnectionstatechange = () => {
             console.log('Connection state:', this.connection.connectionState)
             const status = this.connection.connectionState
-            
+
             let statusMessage = ''
             switch (status) {
                 case 'connected':
@@ -234,17 +235,17 @@ class WebRTCClient {
                 default:
                     statusMessage = status
             }
-            
+
             // Update status in the UI if the function exists
             if (this.window && this.window.updateConnectionStatus) {
                 this.window.updateConnectionStatus(statusMessage)
             }
         }
-        
+
         this.connection.oniceconnectionstatechange = () => {
             console.log('ICE connection state:', this.connection.iceConnectionState)
             const iceState = this.connection.iceConnectionState
-            
+
             let statusMessage = ''
             switch (iceState) {
                 case 'checking':
@@ -269,7 +270,7 @@ class WebRTCClient {
                     statusMessage = `ICE: ${iceState}`
             }
         }
-        
+
         this.connection.onicegatheringstatechange = () => {
             console.log('ICE gathering state:', this.connection.iceGatheringState)
             if (this.connection.iceGatheringState === 'gathering') {
@@ -284,7 +285,7 @@ class WebRTCClient {
             }
         }
     }
-    
+
     setupDataChannel() {
         this.dataChannel.onopen = () => {
             console.log('Data channel opened')
@@ -292,7 +293,7 @@ class WebRTCClient {
                 this.window.updateConnectionStatus('Connected - Ready to play!')
             }
         }
-        
+
         this.dataChannel.onmessage = (event) => {
             const message = JSON.parse(event.data)
             if (message.type === 'gameStateUpdate') {
@@ -318,7 +319,7 @@ class WebRTCClient {
                 this.window.updateConnectionStatus('Data channel error')
             }
         }
-        
+
         this.dataChannel.onclose = () => {
             console.log('Data channel closed')
             if (this.window && this.window.updateConnectionStatus) {
@@ -329,7 +330,7 @@ class WebRTCClient {
 
     async addICECandidate(candidateString) {
         const candidate = JSON.parse(candidateString)
-        
+
         if (this.connection.remoteDescription) {
             await this.connection.addIceCandidate(candidate)
         } else {
@@ -344,7 +345,7 @@ class WebRTCClient {
             console.warn('Data channel not ready, message not sent:', message)
         }
     }
-    
+
     disconnect() {
         if (this.dataChannel) {
             this.dataChannel.close()
@@ -354,7 +355,7 @@ class WebRTCClient {
         }
         console.log('Disconnected')
     }
-    
+
     handleConnectionFailure() {
         console.log('Connection failed, attempting retry...')
         if (this.connectionAttempts < this.maxConnectionAttempts) {
