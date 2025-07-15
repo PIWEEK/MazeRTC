@@ -38,7 +38,7 @@ let characters = []
 let movements = {}
 let selectedButton = null
 let lastId = -1
-let currentLevel = 0
+let currentLevel = 3
 let commands = []
 let selectedCharacter = 0
 let moving = false
@@ -336,14 +336,12 @@ function checkMoveDoors(currentTile, targetTile, movement) {
 
     doors.forEach(d => {
         if ((d.x == currentTile.x) && (d.y == currentTile.y)) {
-            console.log("same", d, movement)
             if ((!d.open) && (d.value == movement)) {
                 ok = false
             }
         }
 
         if ((d.x == targetTile.x) && (d.y == targetTile.y)) {
-            console.log("target", d, movement, movement + 2 % 3)
             if ((!d.open) && (d.value == (movement + 2) % 4)) {
                 ok = false
             }
@@ -398,7 +396,7 @@ function checkDoors() {
     })
 
     doors.forEach(door => {
-        door.open = openColors.has(door.value % 4)
+        door.open = openColors.has(Math.floor(door.value / 4))
     })
 }
 
@@ -406,7 +404,6 @@ function move() {
     if (commands.length > 0) {
         moving = true
         let command = nextCommand()
-        console.log("command", command)
 
         if (command.character === selectedCharacter && validCommand(command)) {
             if (command.value == 0) {
@@ -423,8 +420,6 @@ function move() {
                 characters[command.character].currentAnim = "exit"
                 characters[command.character].enabled = false
             }
-
-            console.log("Character moved", characters[command.character])
 
             webrtcClient.sendMessage({
                 type: "updateCharacter",
@@ -521,9 +516,6 @@ function coordsToTile(x, y) {
 }
 
 function onCanvasClick(e) {
-    console.log(e.offsetX, e.offsetY)
-    console.log(coordsToTile(e.offsetX, e.offsetY))
-
     for (let i = 0; i < characters.length; i++) {
         const [x, y] = coordsToTile(e.offsetX, e.offsetY);
         const character = characters[i];
@@ -734,7 +726,7 @@ function logLevel() {
     levelTxt += "  doors: [\n"
     doors.forEach(door => {
         levelTxt += "    {\n"
-        levelTxt += "    value: " + door.x + ",\n"
+        levelTxt += "    value: " + door.value + ",\n"
         levelTxt += "    x: " + door.x + ",\n"
         levelTxt += "    y: " + door.y + ",\n"
         levelTxt += "    },\n"
@@ -760,6 +752,7 @@ function logLevel() {
 }
 
 function addDoor(x, y, value, open) {
+    console.log("Add door", value)
     doors.push({ x: x, y: y, img: doorsImgs.closed[value], imgOpen: doorsImgs.open[value], value: value, open: open })
 }
 
