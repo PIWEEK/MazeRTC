@@ -11,7 +11,7 @@ class WebRTCClient {
         this.maxConnectionAttempts = 3
         this.signalingClient = null
         this.currentRoomId = null
-        this.peerId = null
+        this.peerId = "default"
         this.peers = []
         this.configuration = {}
     }
@@ -66,9 +66,10 @@ class WebRTCClient {
 
     async getClients() {
         if (!this.signalingClient) {
-            throw new Error('Signaling client not initialized');
+            const id = this.peerId || "default";
+            return {[id]: {}};
         }
-        
+
         return this.signalingClient.clients;
     }
 

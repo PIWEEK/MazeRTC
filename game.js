@@ -514,7 +514,7 @@ async function gameMode() {
 }
 
 function setMovementButtons(movements) {
-    const currentClientId = webrtcClient.signalingClient ? webrtcClient.signalingClient.clientId : 0;
+    const currentClientId = webrtcClient.signalingClient ? webrtcClient.signalingClient.clientId : webrtcClient.peerId || "default";
     const myButtons = movements[currentClientId] || [];
 
     const buttonConfigs = [
