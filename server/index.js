@@ -7,11 +7,12 @@ const wss = require('./wss')
 
 const HTTPPORT = 4000
 const WSSPORT = 8090
+const HOST = process.env.HOST || 'localhost'
 
 wss.init(WSSPORT)
 
-server.listen(HTTPPORT, () => {
+server.listen(HTTPPORT, HOST, () => {
     debug(`${process.env.APPNAME} is running on port: ${HTTPPORT}`)
-    console.log(`HTTP server running on http://localhost:${HTTPPORT}`)
-    console.log(`WebSocket signaling server running on ws://localhost:${WSSPORT}`)
+    console.log(`HTTP server running on http://${HOST}:${HTTPPORT}`)
+    console.log(`WebSocket signaling server running on ws://${HOST}:${WSSPORT}`)
 })
