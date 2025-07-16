@@ -1,5 +1,5 @@
 const WSSPORT = 8090 // FIXME use envvar
-const WSHOST = "192.168.1.50" // FIXME use envvar
+const WSHOST =  'localhost' // FIXME use envvar
 
 class WebRTCClient {
     constructor(window) {
@@ -17,7 +17,9 @@ class WebRTCClient {
         this.configuration = {}
     }
 
-    async initializeSignaling(signalingServerUrl = `ws://${WSHOST}:${WSSPORT}`) {
+    async initializeSignaling() {
+        const protocol = window.location.protocol.includes('https') ? 'wss': 'ws'
+        const signalingServerUrl = `${protocol}://${WSHOST}:${WSSPORT}`
         this.signalingClient = new SignalingClient(signalingServerUrl);
 
         this.signalingClient.onConnected = () => {
