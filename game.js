@@ -9,6 +9,7 @@ const MAX_CHARACTERS = 4
 const TILE_OFFSET_EDITOR = 4
 
 const JUMP = 4
+const PUSH = 8
 
 const SPEED = 250
 
@@ -53,6 +54,7 @@ let commands = []
 let selectedCharacter = 0
 let moving = false
 let powers = []
+let movementButtonsConfig
 
 var board = [
     [7, 1, 1, 1, 1, 5],
@@ -174,7 +176,8 @@ async function preloadPower(name) {
 
 async function preloadPowers() {
     powers = [
-        await preloadPower("jump")
+        await preloadPower("jump"),
+        await preloadPower("push")
     ]
 
     let img = new Image();
@@ -274,7 +277,8 @@ function drawButton(button) {
 function drawButtons() {
     buttons.forEach(button => {
 
-        if ((button.type != "jump") || (selectedCharacter == 0)) {
+        if (((button.type != "jump") || (selectedCharacter == 0)) &&
+            ((button.type != "push") || (selectedCharacter == 1))) {
             drawButton(button)
         }
     })
@@ -372,9 +376,9 @@ function drawCharacter(character, delta) {
 }
 
 function drawCharacters(delta) {
-    characters.forEach(character => {
-        drawCharacter(character, delta)
-    })
+    for (let i = 3; i >= 0; i--) {
+        drawCharacter(characters[i], delta)
+    }
 }
 
 
@@ -403,16 +407,8 @@ function drawItems(items) {
 }
 
 
-
 function emptyTile(tile) {
-
-    let ok = true
-    characters.forEach(character => {
-        if ((character.x == tile.x) && (character.y == tile.y)) {
-            ok = false
-        }
-    })
-    return ok
+    return findItem(characters, tile.x, tile.y) == null
 }
 
 function checkMoveDoors(currentTile, targetTile, movement) {
@@ -435,33 +431,32 @@ function checkMoveDoors(currentTile, targetTile, movement) {
     return ok
 }
 
-function findHole(x, y) {
-    for (let i = 0; i < holes.length; i++) {
-        if ((holes[i].x == x) && (holes[i].y == y)) {
-            return holes[i]
+function findItem(items, x, y) {
+    for (let i = 0; i < items.length; i++) {
+        if ((items[i].x == x) && (items[i].y == y)) {
+            return items[i]
         }
     }
 }
 
-function canMove(currentTile, targetTile, movement, character) {
+function canMove(currentTile, targetTile, movement, character, ignoreTraps) {
     if (!currentTile || !targetTile) {
         return false
     }
 
-    let currentHole = findHole(currentTile.x, currentTile.y)
-    let targetHole = findHole(targetTile.x, targetTile.y)
+    let currentHole = findItem(holes, currentTile.x, currentTile.y)
+    let targetHole = findItem(holes, targetTile.x, targetTile.y)
 
     let inverseMovement = (movement + 2) % 4
 
-    console.log(currentTile.allowedMoves, currentTile.allowedMoves[movement])
-    console.log(targetTile.allowedMoves, targetTile.allowedMoves[inverseMovement])
-    console.log(movement)
-    console.log(inverseMovement)
-
-
+    let targetTrap = null
+    if (!ignoreTraps) {
+        targetTrap = findItem(traps, targetTile.x, targetTile.y)
+    }
 
     return (currentTile.allowedMoves[movement] || ((character == 2) && currentHole && (currentHole.value == movement))) &&
         (targetTile.allowedMoves[inverseMovement] || ((character == 2) && targetHole && (targetHole.value == inverseMovement))) &&
+        !targetTrap &&
         checkMoveDoors(currentTile, targetTile, movement)
 }
 
@@ -478,69 +473,76 @@ function getTile(x, y) {
     }
 }
 
-function validWalk(command) {
-    let character = characters[command.character];
-    let currentTile = getTile(character.x, character.y);
-    let targetTile = null
-    let ok = false
-    if (command.value == 0) {
-        targetTile = getTile(character.x, character.y - 1)
-        ok = canMove(currentTile, targetTile, command.value, command.character) && emptyTile(targetTile)
-    } else if (command.value == 1) {
-        targetTile = getTile(character.x + 1, character.y)
-        ok = canMove(currentTile, targetTile, command.value, command.character) && emptyTile(targetTile)
-    } else if (command.value == 2) {
-        targetTile = getTile(character.x, character.y + 1)
-        ok = canMove(currentTile, targetTile, command.value, command.character) && emptyTile(targetTile)
-    } else if (command.value == 3) {
-        targetTile = getTile(character.x - 1, character.y)
-        ok = canMove(currentTile, targetTile, command.value, command.character) && emptyTile(targetTile)
-    }
-    if (ok) {
-        return targetTile
-    }
-}
 
-function validJump(command) {
-    let character = characters[command.character];
-    let currentTile = getTile(character.x, character.y);
-    let targetTile
-    let targetTile2
-    value = command.value - JUMP
-    let ok = false
+function getTargetTile(currentTile, value) {
     if (value == 0) {
-        targetTile = getTile(character.x, character.y - 1)
-        targetTile2 = getTile(character.x, character.y - 2)
-        ok = canMove(currentTile, targetTile, value) && canMove(targetTile, targetTile2, value) && !emptyTile(targetTile) && emptyTile(targetTile2)
+        return getTile(currentTile.x, currentTile.y - 1)
     } else if (value == 1) {
-        targetTile = getTile(character.x + 1, character.y)
-        targetTile2 = getTile(character.x + 2, character.y)
-        ok = canMove(currentTile, targetTile, value) && canMove(targetTile, targetTile2, value) && !emptyTile(targetTile) && emptyTile(targetTile2)
+        return getTile(currentTile.x + 1, currentTile.y)
     } else if (value == 2) {
-        targetTile = getTile(character.x, character.y + 1)
-        targetTile2 = getTile(character.x, character.y + 2)
-        ok = canMove(currentTile, targetTile, value) && canMove(targetTile, targetTile2, value) && !emptyTile(targetTile) && emptyTile(targetTile2)
+        return getTile(currentTile.x, currentTile.y + 1)
     } else if (value == 3) {
-        targetTile = getTile(character.x - 1, character.y)
-        targetTile2 = getTile(character.x - 2, character.y)
-        ok = canMove(currentTile, targetTile, value) && canMove(targetTile, targetTile2, value) && !emptyTile(targetTile) && emptyTile(targetTile2)
+        return getTile(currentTile.x - 1, currentTile.y)
     }
-    if (ok) {
-        return targetTile2
+
+}
+
+function getWalkInfo(command) {
+    let character = characters[command.character]
+    let currentTile = getTile(character.x, character.y)
+    let targetTile = getTargetTile(currentTile, command.value)
+
+    if (canMove(currentTile, targetTile, command.value, command.character) && emptyTile(targetTile)) {
+        return [character, targetTile]
+    }
+}
+
+function getJumpInfo(command) {
+    let value = command.value - JUMP
+    let character = characters[command.character]
+    let currentTile = getTile(character.x, character.y)
+    let targetTile = getTargetTile(currentTile, value)
+    let targetTile2 = getTargetTile(targetTile, value)
+
+
+    if (canMove(currentTile, targetTile, value) && canMove(targetTile, targetTile2, value) && !emptyTile(targetTile) && emptyTile(targetTile2)) {
+        return [character, targetTile2]
+    }
+}
+
+function getPushInfo(command) {
+    let value = command.value - PUSH
+    let character = characters[command.character]
+    let currentTile = getTile(character.x, character.y)
+    let targetTile = getTargetTile(currentTile, value)
+    let targetTile2 = getTargetTile(targetTile, value)
+    let targetTile3 = getTargetTile(targetTile2, value)
+
+    let trap = findItem(traps, targetTile2.x, targetTile2.y)
+    let targetCharacter = findItem(characters, targetTile.x, targetTile.y)
+
+    if (targetCharacter &&
+        trap &&
+        canMove(currentTile, targetTile, value, command.character, true) &&
+        canMove(targetTile, targetTile2, value, command.character, true) &&
+        canMove(targetTile2, targetTile3, value, command.character, true)) {
+        return [targetCharacter, targetTile3]
     }
 }
 
 
-function getNextTile(command) {
+function getMoveInfo(command) {
     let character = characters[command.character];
     if (!character || !character.enabled) {
-        return false;
+        return null;
     }
 
     if (command.value < JUMP) {
-        return validWalk(command);
-    } else if (command.value >= JUMP) {
-        return validJump(command);
+        return getWalkInfo(command);
+    } else if ((command.value >= JUMP) && (command.value < PUSH)) {
+        return getJumpInfo(command);
+    } else if (command.value >= PUSH) {
+        return getPushInfo(command);
     }
 }
 
@@ -566,24 +568,27 @@ function move() {
     if (commands.length > 0) {
         let command = nextCommand()
         if (command.character === selectedCharacter) {
-            let targetTile = getNextTile(command)
+            const moveInfo = getMoveInfo(command) || []
+            console.log(moveInfo)
+            const [character, targetTile] = moveInfo
             if (targetTile) {
                 moving = true
-                characters[command.character].drawTargetX = targetTile.x * TILE_SIZE + TILE_OFFSET_X
-                characters[command.character].drawTargetY = targetTile.y * TILE_SIZE + TILE_OFFSET_Y
+
+                character.drawTargetX = targetTile.x * TILE_SIZE + TILE_OFFSET_X
+                character.drawTargetY = targetTile.y * TILE_SIZE + TILE_OFFSET_Y
 
                 if (command.value >= JUMP) {
-                    characters[command.character].jumping = true
+                    character.jumping = true
                 }
 
-                if (targetTile.x > characters[command.character].x) {
-                    characters[command.character].currentAnim = "walkR"
-                } else if (targetTile.x < characters[command.character].x) {
-                    characters[command.character].currentAnim = "walkL"
-                } if (targetTile.y > characters[command.character].y) {
-                    characters[command.character].currentAnim = "walkD"
-                } if (targetTile.y < characters[command.character].y) {
-                    characters[command.character].currentAnim = "walkU"
+                if (targetTile.x > character.x) {
+                    character.currentAnim = "walkR"
+                } else if (targetTile.x < character.x) {
+                    character.currentAnim = "walkL"
+                } if (targetTile.y > character.y) {
+                    character.currentAnim = "walkD"
+                } if (targetTile.y < character.y) {
+                    character.currentAnim = "walkU"
                 }
 
 
@@ -591,16 +596,13 @@ function move() {
                     type: "updateCharacter",
                     character: selectedCharacter,
                     position: [targetTile.x, targetTile.y],
-                    enabled: characters[command.character].enabled,
-                    currentAnim: characters[command.character].currentAnim,
-                    jumping: characters[command.character].jumping
+                    enabled: character.enabled,
+                    currentAnim: character.currentAnim,
+                    jumping: character.jumping
                 })
 
-
-
-
                 setTimeout(() => {
-                    endMove(command.character, targetTile)
+                    endMove(character.num, targetTile)
                 }, 500)
             }
         }
@@ -609,6 +611,7 @@ function move() {
 
 function endMove(chNum, targetTile) {
     moving = false
+    clearPowers()
     let character = characters[chNum]
     character.jumping = false
 
@@ -708,30 +711,40 @@ function coordsToTile(x, y) {
 }
 
 function onCanvasClick(e) {
+    onCoordsClick(e.offsetX, e.offsetY)
+}
+
+function clearPowers() {
+    // Unselect all buttons
+    buttons.forEach(button => {
+        button.selected = false
+    });
+
+    // Unselect all powers
+    powers.forEach(powers => {
+        powers.selected = false
+    });
+}
+
+function selectCharacter(num) {
+    clearPowers();
+    selectedCharacter = num;
+}
+
+
+function onCoordsClick(coordX, coordY) {
+    const [x, y] = coordsToTile(coordX, coordY);
     for (let i = 0; i < characters.length; i++) {
-        const [x, y] = coordsToTile(e.offsetX, e.offsetY);
         const character = characters[i];
         if ((character.x === x && character.y === y) && (selectedCharacter != i)) {
-            // Unselect all buttons
-            buttons.forEach(button => {
-                button.selected = false
-            });
-
-            // Unselect all powers
-            powers.forEach(powers => {
-                powers.selected = false
-            });
-
-
-            selectedCharacter = i;
+            selectCharacter(i)
             break
         }
     }
 
     for (var i = 0; i < buttons.length; i++) {
-        if (pointInRect(e.offsetX, e.offsetY, buttons[i].x, buttons[i].y, buttons[i].width, buttons[i].height)) {
+        if (pointInRect(coordX, coordY, buttons[i].x, buttons[i].y, buttons[i].width, buttons[i].height)) {
             buttons[i].onClick(buttons[i])
-            break
         }
     }
 }
@@ -878,11 +891,12 @@ async function gameMode() {
     displayGameArea()
 }
 
+
 function setMovementButtons(movements) {
     const currentClientId = webrtcClient.signalingClient ? webrtcClient.signalingClient.clientId : webrtcClient.peerId || "default";
     const myButtons = movements[currentClientId] || [];
 
-    const buttonConfigs = [
+    movementButtonsConfig = [
         { control: controls[0], x: WIDTH / 2 - TILE_SIZE / 4, y: 0, value: 0 }, // UP
         { control: controls[1], x: TILE_SIZE * 8, y: HEIGHT / 2 - TILE_SIZE / 4, value: 1 }, // RIGHT
         { control: controls[2], x: WIDTH / 2 - TILE_SIZE / 4, y: TILE_SIZE * 7, value: 2 }, // DOWN
@@ -892,6 +906,8 @@ function setMovementButtons(movements) {
     let onClick = (button) => {
         if (powers[0].selected) {
             addCommand({ character: selectedCharacter, value: button.value + JUMP })
+        } else if (powers[1].selected) {
+            addCommand({ character: selectedCharacter, value: button.value + PUSH })
         } else {
             addCommand({ character: selectedCharacter, value: button.value })
         }
@@ -900,7 +916,7 @@ function setMovementButtons(movements) {
     buttons = []
 
     myButtons.forEach(buttonIndex => {
-        const config = buttonConfigs[buttonIndex];
+        const config = movementButtonsConfig[buttonIndex];
         addButton(
             config.control.default,
             null,
@@ -933,6 +949,28 @@ function setMovementButtons(movements) {
         4,
         "jump",
         onJump
+    );
+
+    let onPush = (button) => {
+        console.log("onPush 0")
+        if (selectedCharacter == 1) {
+            button.selected = !button.selected
+            powers[1].selected = !powers[1].selected
+            console.log("onPush")
+        }
+    }
+
+    // Push button
+    addButton(
+        powers[1].default,
+        powers[1].imgSelected,
+        TILE_SIZE * 9,
+        0,
+        TILE_SIZE,
+        TILE_SIZE,
+        5,
+        "push",
+        onPush
     );
 
 
@@ -1285,7 +1323,48 @@ function closeConnectionPanel() {
 }
 
 function onKeyDown(e) {
-    // TODO
+    e.preventDefault()
+    switch (e.key.toLowerCase()) {
+        case "arrowup":
+            // Up pressed
+            onCoordsClick(movementButtonsConfig[0].x, movementButtonsConfig[0].y)
+            break;
+        case "arrowright":
+            // Right pressed
+            onCoordsClick(movementButtonsConfig[1].x, movementButtonsConfig[1].y)
+            break;
+        case "arrowdown":
+            // Down pressed
+            onCoordsClick(movementButtonsConfig[2].x, movementButtonsConfig[2].y)
+            break;
+        case "arrowleft":
+            onCoordsClick(movementButtonsConfig[3].x, movementButtonsConfig[3].y)
+            break;
+        case "p":
+            onCoordsClick(TILE_SIZE * 9, 0)
+            break;
+        case "1":
+            if (characters[0].enabled) { selectCharacter(0) }
+            break;
+        case "2":
+            if (characters[0].enabled) { selectCharacter(1) }
+            break;
+        case "3":
+            if (characters[0].enabled) { selectCharacter(2) }
+            break;
+        case "4":
+            if (characters[0].enabled) { selectCharacter(3) }
+            break;
+        case "tab":
+            for (i = 1; i < 3; i++) {
+                let num = (selectedCharacter + i) % MAX_CHARACTERS
+                if (characters[num].enabled) {
+                    selectCharacter(num)
+                    break
+                }
+            }
+
+    }
 }
 
 function getGameState() {
