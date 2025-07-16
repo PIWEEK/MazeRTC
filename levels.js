@@ -313,7 +313,7 @@ const LEVELS = [
                 num: 0,
                 enabled: true,
                 x: 0,
-                y: 0,
+                y: 5,
                 exitX: 5,
                 exitY: 0,
             },

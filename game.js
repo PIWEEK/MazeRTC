@@ -3,7 +3,7 @@ const HEIGHT = 1024
 const TILE_SIZE = 128
 const TILE_OFFSET_X = 256
 const TILE_OFFSET_Y = 128
-const MAX_FRAMES = 30
+const MAX_FRAMES = 4
 const MAX_CHARACTERS = 4
 
 const TILE_OFFSET_EDITOR = 4
@@ -34,7 +34,7 @@ const statusText = document.getElementById('statusText')
 const joinRoomButton = document.getElementById('joinRoomButton')
 const webrtcClient = new WebRTCClient(window)
 const tiles = []
-const SELECTED_CHARACTER_COLOR = '#00ff00'
+const SELECTED_CHARACTER_COLOR = '#ff0000'
 let controls = []
 let doorsImgs = []
 let doors = []
@@ -338,7 +338,7 @@ function drawBoard(delta) {
 
 function addShadow(ctx) {
     ctx.shadowColor = SELECTED_CHARACTER_COLOR;
-    ctx.shadowBlur = 15;
+    ctx.shadowBlur = 25;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
 }
@@ -362,6 +362,10 @@ function drawCharacter(character, delta) {
 
 
         const animationIndex = currentFrame % character.anims[character.currentAnim].length
+        console.log("animationIndex" + animationIndex)
+        console.log("currentFrame" + currentFrame)
+        console.log("character.anims[character.currentAnim].length" + character.anims[character.currentAnim].length)
+
 
 
         ctx.save()
@@ -435,7 +439,7 @@ function checkMoveDoors(currentTile, targetTile, movement) {
 
 function findItem(items, x, y) {
     for (let i = 0; i < items.length; i++) {
-        if ((items[i].x == x) && (items[i].y == y)) {
+        if ((items[i].x == x) && (items[i].y == y) && (items[i].enabled != false)) {
             return items[i]
         }
     }
@@ -725,7 +729,7 @@ function gameLoop(timestamp) {
 
         lastTime = timestamp
 
-        animTime += delta * 100
+        animTime += delta * 10
         currentFrame = Math.floor(animTime);
 
         ctx.fillStyle = 'black'
@@ -1437,7 +1441,7 @@ function onKeyDown(e) {
                 if (characters[0].enabled) { selectCharacter(3) }
                 break;
             case "tab":
-                for (i = 1; i < 3; i++) {
+                for (i = 1; i < 4; i++) {
                     let num = (selectedCharacter + i) % MAX_CHARACTERS
                     if (characters[num].enabled) {
                         selectCharacter(num)
