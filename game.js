@@ -10,6 +10,7 @@ const TILE_OFFSET_EDITOR = 4
 
 const JUMP = 4
 const PUSH = 8
+const TELEPORT = 12
 
 const SPEED = 250
 
@@ -91,7 +92,7 @@ async function preloadCharacter(num) {
         drawTargetX: 0,
         drawTargetY: 0,
         currentAnim: "idle",
-        jumping: false,
+        speed: SPEED,
         anims: {
             idle: [],
             walkU: [],
@@ -178,7 +179,8 @@ async function preloadPower(name) {
 async function preloadPowers() {
     powers = [
         await preloadPower("jump"),
-        await preloadPower("push")
+        await preloadPower("push"),
+        await preloadPower("teleport")
     ]
 
     let img = new Image();
@@ -279,7 +281,8 @@ function drawButtons() {
     buttons.forEach(button => {
 
         if (((button.type != "jump") || (selectedCharacter == 0)) &&
-            ((button.type != "push") || (selectedCharacter == 1))) {
+            ((button.type != "push") || (selectedCharacter == 1)) &&
+            ((button.type != "teleport") || (selectedCharacter == 3))) {
             drawButton(button)
         }
     })
@@ -343,10 +346,8 @@ function addShadow(ctx) {
 function drawCharacter(character, delta) {
     if (character.enabled) {
         currentFrame += character.num * 10
-        let inc = SPEED * delta
-        if (character.jumping) {
-            inc *= 2
-        }
+        let inc = character.speed * delta
+
 
         // Animation
         if (character.drawX < character.drawTargetX) {
@@ -542,8 +543,10 @@ function getMoveInfo(command) {
         return getWalkInfo(command);
     } else if ((command.value >= JUMP) && (command.value < PUSH)) {
         return getJumpInfo(command);
-    } else if (command.value >= PUSH) {
+    } else if ((command.value >= PUSH) && (command.value < TELEPORT)) {
         return getPushInfo(command);
+    } else if (command.value == TELEPORT) {
+
     }
 }
 
@@ -565,46 +568,86 @@ function checkDoors() {
     })
 }
 
+
+function teleport(command) {
+    let character = characters[command.character]
+    let targetCharacter = characters[command.targetCharacter]
+    let teleportPlatform = findItem(teleports, character.x, character.y)
+    if (teleportPlatform) {
+        // Instant move
+        setCharacterPos(character, targetCharacter.x, targetCharacter.y)
+        setCharacterPos(targetCharacter, teleportPlatform.x, teleportPlatform.y)
+        endMove(command.character, character)
+
+        webrtcClient.sendMessage({
+            type: "updateCharacter",
+            character: character.num,
+            position: [character.x, character.y],
+            enabled: character.enabled,
+            currentAnim: character.currentAnim,
+            speed: 10000
+        })
+
+        webrtcClient.sendMessage({
+            type: "updateCharacter",
+            character: targetCharacter.num,
+            position: [targetCharacter.x, targetCharacter.y],
+            enabled: targetCharacter.enabled,
+            currentAnim: targetCharacter.currentAnim,
+            speed: 10000
+        })
+
+    }
+
+}
+
 function move() {
     if (commands.length > 0) {
         let command = nextCommand()
         if (command.character === selectedCharacter) {
-            const moveInfo = getMoveInfo(command) || []
-            console.log(moveInfo)
-            const [character, targetTile] = moveInfo
-            if (targetTile) {
-                moving = true
 
-                character.drawTargetX = targetTile.x * TILE_SIZE + TILE_OFFSET_X
-                character.drawTargetY = targetTile.y * TILE_SIZE + TILE_OFFSET_Y
+            if (command.value == TELEPORT) {
+                teleport(command)
 
-                if (command.value >= JUMP) {
-                    character.jumping = true
+            } else {
+
+
+                const moveInfo = getMoveInfo(command) || []
+                const [character, targetTile] = moveInfo
+                if (targetTile) {
+                    moving = true
+
+                    character.drawTargetX = targetTile.x * TILE_SIZE + TILE_OFFSET_X
+                    character.drawTargetY = targetTile.y * TILE_SIZE + TILE_OFFSET_Y
+
+                    if (command.value >= JUMP) {
+                        character.speed = SPEED * 2
+                    }
+
+                    if (targetTile.x > character.x) {
+                        character.currentAnim = "walkR"
+                    } else if (targetTile.x < character.x) {
+                        character.currentAnim = "walkL"
+                    } if (targetTile.y > character.y) {
+                        character.currentAnim = "walkD"
+                    } if (targetTile.y < character.y) {
+                        character.currentAnim = "walkU"
+                    }
+
+
+                    webrtcClient.sendMessage({
+                        type: "updateCharacter",
+                        character: character.num,
+                        position: [targetTile.x, targetTile.y],
+                        enabled: character.enabled,
+                        currentAnim: character.currentAnim,
+                        speed: character.speed
+                    })
+
+                    setTimeout(() => {
+                        endMove(character.num, targetTile)
+                    }, 500)
                 }
-
-                if (targetTile.x > character.x) {
-                    character.currentAnim = "walkR"
-                } else if (targetTile.x < character.x) {
-                    character.currentAnim = "walkL"
-                } if (targetTile.y > character.y) {
-                    character.currentAnim = "walkD"
-                } if (targetTile.y < character.y) {
-                    character.currentAnim = "walkU"
-                }
-
-
-                webrtcClient.sendMessage({
-                    type: "updateCharacter",
-                    character: character.num,
-                    position: [targetTile.x, targetTile.y],
-                    enabled: character.enabled,
-                    currentAnim: character.currentAnim,
-                    jumping: character.jumping
-                })
-
-                setTimeout(() => {
-                    endMove(character.num, targetTile)
-                }, 500)
             }
         }
     }
@@ -614,7 +657,7 @@ function endMove(chNum, targetTile) {
     moving = false
     clearPowers()
     let character = characters[chNum]
-    character.jumping = false
+    character.speed = SPEED
 
     character.currentAnim = "idle"
 
@@ -647,14 +690,21 @@ function checkGameEnd() {
     }
 }
 
-function updateCharacter(character, position, enabled, currentAnim, jumping) {
+function updateCharacter(character, position, enabled, currentAnim, speed) {
     console.log("Updating character", position)
     const [x, y] = position
     characters[character].drawTargetX = x * TILE_SIZE + TILE_OFFSET_X
     characters[character].drawTargetY = y * TILE_SIZE + TILE_OFFSET_Y
     characters[character].enabled = enabled
     characters[character].currentAnim = currentAnim
-    characters[character].jumping = jumping
+    characters[character].speed = speed
+
+    // For teleport
+    if (speed == 10000) {
+        setCharacterPos(characters[character], x * TILE_SIZE + TILE_OFFSET_X, TILE_SIZE + TILE_OFFSET_Y)
+        endMove(character, { x: x, y: y })
+
+    }
 
     setTimeout(() => {
         endMove(character, { x: x, y: y })
@@ -738,7 +788,11 @@ function onCoordsClick(coordX, coordY) {
     for (let i = 0; i < characters.length; i++) {
         const character = characters[i];
         if ((character.x === x && character.y === y) && (selectedCharacter != i)) {
-            selectCharacter(i)
+            if (powers[2].selected) {
+                addCommand({ character: selectedCharacter, targetCharacter: i, value: TELEPORT })
+            } else {
+                selectCharacter(i)
+            }
             break
         }
     }
@@ -956,11 +1010,9 @@ function setMovementButtons(movements) {
     );
 
     let onPush = (button) => {
-        console.log("onPush 0")
         if (selectedCharacter == 1) {
             button.selected = !button.selected
             powers[1].selected = !powers[1].selected
-            console.log("onPush")
         }
     }
 
@@ -975,6 +1027,28 @@ function setMovementButtons(movements) {
         5,
         "push",
         onPush
+    );
+
+
+
+    let onTeleport = (button) => {
+        if (selectedCharacter == 3) {
+            button.selected = !button.selected
+            powers[2].selected = !powers[2].selected
+        }
+    }
+
+    // Teleport button
+    addButton(
+        powers[2].default,
+        powers[2].imgSelected,
+        TILE_SIZE * 9,
+        0,
+        TILE_SIZE,
+        TILE_SIZE,
+        5,
+        "teleport",
+        onTeleport
     );
 
 
@@ -1328,7 +1402,9 @@ function closeConnectionPanel() {
 
 function onKeyDown(e) {
     if (mode == MODE_PLAYING) {
-        e.preventDefault()
+        if (e.key !== 'F12') {
+            e.preventDefault()
+        }
         switch (e.key.toLowerCase()) {
             case "arrowup":
                 // Up pressed
