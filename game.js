@@ -362,16 +362,19 @@ function emptyTile(tile) {
 function checkMoveDoors(currentTile, targetTile, movement) {
 
     var ok = true
+    console.log(currentTile)
+    console.log(targetTile)
 
     doors.forEach(d => {
+        console.log(d)
         if ((d.x == currentTile.x) && (d.y == currentTile.y)) {
-            if ((!d.open) && (d.value == movement)) {
+            if ((!d.open) && ((d.value % 4) == movement)) {
                 ok = false
             }
         }
 
         if ((d.x == targetTile.x) && (d.y == targetTile.y)) {
-            if ((!d.open) && (d.value == (movement + 2) % 4)) {
+            if ((!d.open) && ((d.value % 4) == (movement + 2) % 4)) {
                 ok = false
             }
         }
