@@ -435,12 +435,34 @@ function checkMoveDoors(currentTile, targetTile, movement) {
     return ok
 }
 
-function canMove(currentTile, targetTile, movement) {
+function findHole(x, y) {
+    for (let i = 0; i < holes.length; i++) {
+        if ((holes[i].x == x) && (holes[i].y == y)) {
+            return holes[i]
+        }
+    }
+}
+
+function canMove(currentTile, targetTile, movement, character) {
     if (!currentTile || !targetTile) {
         return false
     }
 
-    return currentTile.allowedMoves[movement] && targetTile.allowedMoves[(movement + 2) % 4] && checkMoveDoors(currentTile, targetTile, movement)
+    let currentHole = findHole(currentTile.x, currentTile.y)
+    let targetHole = findHole(targetTile.x, targetTile.y)
+
+    let inverseMovement = (movement + 2) % 4
+
+    console.log(currentTile.allowedMoves, currentTile.allowedMoves[movement])
+    console.log(targetTile.allowedMoves, targetTile.allowedMoves[inverseMovement])
+    console.log(movement)
+    console.log(inverseMovement)
+
+
+
+    return (currentTile.allowedMoves[movement] || ((character == 2) && currentHole && (currentHole.value == movement))) &&
+        (targetTile.allowedMoves[inverseMovement] || ((character == 2) && targetHole && (targetHole.value == inverseMovement))) &&
+        checkMoveDoors(currentTile, targetTile, movement)
 }
 
 
@@ -463,16 +485,16 @@ function validWalk(command) {
     let ok = false
     if (command.value == 0) {
         targetTile = getTile(character.x, character.y - 1)
-        ok = canMove(currentTile, targetTile, command.value) && emptyTile(targetTile)
+        ok = canMove(currentTile, targetTile, command.value, command.character) && emptyTile(targetTile)
     } else if (command.value == 1) {
         targetTile = getTile(character.x + 1, character.y)
-        ok = canMove(currentTile, targetTile, command.value) && emptyTile(targetTile)
+        ok = canMove(currentTile, targetTile, command.value, command.character) && emptyTile(targetTile)
     } else if (command.value == 2) {
         targetTile = getTile(character.x, character.y + 1)
-        ok = canMove(currentTile, targetTile, command.value) && emptyTile(targetTile)
+        ok = canMove(currentTile, targetTile, command.value, command.character) && emptyTile(targetTile)
     } else if (command.value == 3) {
         targetTile = getTile(character.x - 1, character.y)
-        ok = canMove(currentTile, targetTile, command.value) && emptyTile(targetTile)
+        ok = canMove(currentTile, targetTile, command.value, command.character) && emptyTile(targetTile)
     }
     if (ok) {
         return targetTile
@@ -542,11 +564,11 @@ function checkDoors() {
 
 function move() {
     if (commands.length > 0) {
-        moving = true
         let command = nextCommand()
         if (command.character === selectedCharacter) {
             let targetTile = getNextTile(command)
             if (targetTile) {
+                moving = true
                 characters[command.character].drawTargetX = targetTile.x * TILE_SIZE + TILE_OFFSET_X
                 characters[command.character].drawTargetY = targetTile.y * TILE_SIZE + TILE_OFFSET_Y
 
@@ -575,11 +597,12 @@ function move() {
                 })
 
 
-            }
 
-            setTimeout(() => {
-                endMove(command.character, targetTile)
-            }, 500)
+
+                setTimeout(() => {
+                    endMove(command.character, targetTile)
+                }, 500)
+            }
         }
     }
 }
