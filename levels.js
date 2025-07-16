@@ -179,8 +179,8 @@ const LEVELS = [
             {
                 num: 1,
                 enabled: true,
-                x: 3,
-                y: 5,
+                x: 5,
+                y: 4,
                 exitX: 1,
                 exitY: 5,
             },

@@ -10,6 +10,8 @@ const TILE_OFFSET_EDITOR = 4
 
 const JUMP = 4
 
+const SPEED = 250
+
 const canvas = document.getElementById('gameCanvas')
 const ctx = canvas.getContext('2d')
 const buttonsContainer = document.getElementById('buttons')
@@ -71,10 +73,18 @@ async function preloadCharacter(num) {
         y: 0,
         exitX: 0,
         exitY: 0,
+        drawX: 0,
+        drawY: 0,
+        drawTargetX: 0,
+        drawTargetY: 0,
         currentAnim: "idle",
         anims: {
-            "idle": [],
-            "exit": []
+            idle: [],
+            walkU: [],
+            walkR: [],
+            walkD: [],
+            walkL: [],
+            exit: []
         },
         img: {
             base: null,
@@ -82,12 +92,19 @@ async function preloadCharacter(num) {
         }
     }
 
-    var img
-    for (var i = 0; i < MAX_FRAMES; i++) {
-        img = new Image()
-        img.src = "img/characters/" + num + "/idle/" + String(i).padStart(3, '0') + ".png"
-        character.anims.idle.push(img)
-    }
+    let img
+
+    ["walkU", "walkR", "walkD", "walkL"].forEach(anim => {
+        for (var i = 0; i < MAX_FRAMES; i++) {
+            img = new Image()
+            img.src = "img/characters/" + num + "/" + anim + "/" + String(i).padStart(3, '0') + ".png"
+            character.anims[anim].push(img)
+        }
+    })
+
+    img = new Image()
+    img.src = "img/characters/" + num + "/idle/000.png"
+    character.anims.idle.push(img)
 
     character.anims.exit = [character.anims.idle[0]] // Use the first frame of idle as exit animation
 
@@ -297,9 +314,19 @@ function addShadow(ctx) {
 function drawCharacter(character, delta) {
     // if (character.enabled) {
     currentFrame += character.num * 10
+    let inc = SPEED * delta
+    // Animation
+    if (character.drawX < character.drawTargetX) {
+        character.drawX = Math.min(character.drawX + inc, character.drawTargetX)
+    } else if (character.drawX > character.drawTargetX) {
+        character.drawX = Math.max(character.drawX - inc, character.drawTargetX)
+    } else if (character.drawY < character.drawTargetY) {
+        character.drawY = Math.min(character.drawY + inc, character.drawTargetY)
+    } else if (character.drawY > character.drawTargetY) {
+        character.drawY = Math.max(character.drawY - inc, character.drawTargetY)
+    }
 
-    const charX = character.x * TILE_SIZE + TILE_OFFSET_X;
-    const charY = character.y * TILE_SIZE + TILE_OFFSET_Y;
+
     const animationIndex = currentFrame % character.anims[character.currentAnim].length
 
 
@@ -311,7 +338,7 @@ function drawCharacter(character, delta) {
     if (character.currentAnim === "exit") {
         ctx.globalAlpha = 0.5;
     }
-    ctx.drawImage(character.anims[character.currentAnim][animationIndex], charX, charY);
+    ctx.drawImage(character.anims[character.currentAnim][animationIndex], character.drawX, character.drawY);
     ctx.restore();
     // }
 }
@@ -362,11 +389,8 @@ function emptyTile(tile) {
 function checkMoveDoors(currentTile, targetTile, movement) {
 
     var ok = true
-    console.log(currentTile)
-    console.log(targetTile)
 
     doors.forEach(d => {
-        console.log(d)
         if ((d.x == currentTile.x) && (d.y == currentTile.y)) {
             if ((!d.open) && ((d.value % 4) == movement)) {
                 ok = false
@@ -432,7 +456,6 @@ function validJump(command) {
     let targetTile
     let targetTile2
     value = command.value - JUMP
-    console.log("jump", value)
     let ok = false
     if (value == 0) {
         targetTile = getTile(character.x, character.y - 1)
@@ -441,8 +464,6 @@ function validJump(command) {
     } else if (value == 1) {
         targetTile = getTile(character.x + 1, character.y)
         targetTile2 = getTile(character.x + 2, character.y)
-        console.log("Character: ", character)
-        console.log("Empty: " + emptyTile(targetTile), targetTile)
         ok = canMove(currentTile, targetTile, value) && canMove(targetTile, targetTile2, value) && !emptyTile(targetTile) && emptyTile(targetTile2)
     } else if (value == 2) {
         targetTile = getTile(character.x, character.y + 1)
@@ -497,33 +518,53 @@ function move() {
         if (command.character === selectedCharacter) {
             let targetTile = getNextTile(command)
             if (targetTile) {
-                characters[command.character].x = targetTile.x
-                characters[command.character].y = targetTile.y
+                characters[command.character].drawTargetX = targetTile.x * TILE_SIZE + TILE_OFFSET_X
+                characters[command.character].drawTargetY = targetTile.y * TILE_SIZE + TILE_OFFSET_Y
 
-
-                if (checkCharacterInExit(characters[command.character])) {
-                    characters[command.character].currentAnim = "exit"
-                    characters[command.character].enabled = false
+                if (targetTile.x > characters[command.character].x) {
+                    characters[command.character].currentAnim = "walkR"
+                } else if (targetTile.x < characters[command.character].x) {
+                    characters[command.character].currentAnim = "walkL"
+                } if (targetTile.y > characters[command.character].y) {
+                    characters[command.character].currentAnim = "walkD"
+                } if (targetTile.y < characters[command.character].y) {
+                    characters[command.character].currentAnim = "walkU"
                 }
+
 
                 webrtcClient.sendMessage({
                     type: "updateCharacter",
                     character: selectedCharacter,
-                    position: [characters[command.character].x, characters[command.character].y],
+                    position: [targetTile.x, targetTile.y],
                     enabled: characters[command.character].enabled,
                     currentAnim: characters[command.character].currentAnim
                 })
 
-                checkGameEnd()
-            }
-        }
 
-        //TODO Animate movement
-        setTimeout(() => {
-            moving = false
-            checkDoors()
-        }, 250)
+            }
+
+            setTimeout(() => {
+                endMove(command.character, targetTile)
+            }, 500)
+        }
     }
+}
+
+function endMove(chNum, targetTile) {
+    moving = false
+    let character = characters[chNum]
+
+    character.currentAnim = "idle"
+
+    setCharacterPos(character, targetTile.x, targetTile.y)
+    checkDoors()
+
+    if (checkCharacterInExit(character)) {
+        character.currentAnim = "exit"
+        character.enabled = false
+    }
+
+    checkGameEnd()
 }
 
 function checkCharacterInExit(character) {
@@ -547,11 +588,15 @@ function checkGameEnd() {
 function updateCharacter(character, position, enabled, currentAnim) {
     console.log("Updating character", position)
     const [x, y] = position
-    characters[character].x = x
-    characters[character].y = y
+    characters[character].drawTargetX = x * TILE_SIZE + TILE_OFFSET_X
+    characters[character].drawTargetY = y * TILE_SIZE + TILE_OFFSET_Y
     characters[character].enabled = enabled
     characters[character].currentAnim = currentAnim
-    checkDoors()
+
+    setTimeout(() => {
+        endMove(character, { x: x, y: y })
+    }, 500)
+
 }
 
 function gameLoop(timestamp) {
@@ -567,7 +612,7 @@ function gameLoop(timestamp) {
 
         lastTime = timestamp
 
-        animTime += delta * 10
+        animTime += delta * 100
         currentFrame = Math.floor(animTime);
 
         ctx.fillStyle = 'black'
@@ -578,7 +623,7 @@ function gameLoop(timestamp) {
         drawExits()
         drawDoors()
         drawPlates()
-        drawCharacters()
+        drawCharacters(delta)
         drawButtons()
 
 
@@ -588,12 +633,6 @@ function gameLoop(timestamp) {
 
         requestAnimationFrame(gameLoop)
     }
-}
-
-
-function setCharacterPos(character, x, y) {
-    character.x = TILE_OFFSET_X + x * TILE_SIZE
-    character.y = TILE_OFFSET_Y + y * TILE_SIZE
 }
 
 
@@ -864,7 +903,6 @@ function logLevel() {
 }
 
 function addDoor(x, y, value, open) {
-    console.log("Add door", value)
     doors.push({ x: x, y: y, img: doorsImgs.closed[value], imgOpen: doorsImgs.open[value], value: value, open: open })
 }
 
@@ -1012,10 +1050,11 @@ function loadLevel(level) {
 
     for (i = 0; i < characters.length; i++) {
         characters[i].enabled = level.characters[i].enabled
-        characters[i].x = level.characters[i].x
-        characters[i].y = level.characters[i].y
+        setCharacterPos(characters[i], level.characters[i].x, level.characters[i].y)
+
         characters[i].exitX = level.characters[i].exitX
         characters[i].exitY = level.characters[i].exitY
+
     }
 
 
@@ -1126,6 +1165,20 @@ function getGameState() {
     }
 }
 
+function setCharacterPos(character, x, y) {
+
+    console.log("setCharacterPos", x, y)
+
+    character.x = x
+    character.y = y
+
+    character.drawX = x * TILE_SIZE + TILE_OFFSET_X
+    character.drawY = y * TILE_SIZE + TILE_OFFSET_Y
+
+    character.drawTargetX = character.drawX
+    character.drawTargetY = character.drawY
+}
+
 function setGameState(gameState) {
     board = gameState.board || board
 
@@ -1134,8 +1187,7 @@ function setGameState(gameState) {
         gameState.characters.forEach((charData, index) => {
             if (index < characters.length) {
                 characters[index].enabled = charData.enabled
-                characters[index].x = charData.x
-                characters[index].y = charData.y
+                setCharacterPos(characters[index], charData.x, charData.y)
                 characters[index].exitX = charData.exitX
                 characters[index].exitY = charData.exitY
                 characters[index].currentAnim = charData.currentAnim

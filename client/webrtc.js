@@ -70,7 +70,7 @@ class WebRTCClient {
     async getClients() {
         if (!this.signalingClient) {
             const id = this.peerId || "default";
-            return {[id]: {}};
+            return { [id]: {} };
         }
 
         return this.signalingClient.clients;
