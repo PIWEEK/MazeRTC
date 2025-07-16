@@ -13,6 +13,12 @@ const PUSH = 8
 
 const SPEED = 250
 
+
+const MODE_LOBY = 0
+const MODE_PLAYING = 1
+const MODE_EDITOR = 2
+var mode = MODE_LOBY
+
 const canvas = document.getElementById('gameCanvas')
 const ctx = canvas.getContext('2d')
 const buttonsContainer = document.getElementById('buttons')
@@ -42,7 +48,6 @@ let plates = []
 let animTime = 0
 let lastTime = 0
 let currentFrame = 0
-let editing = false
 let gameEnded = false
 let buttons = []
 let characters = []
@@ -590,7 +595,7 @@ function move() {
 
                 webrtcClient.sendMessage({
                     type: "updateCharacter",
-                    character: selectedCharacter,
+                    character: character.num,
                     position: [targetTile.x, targetTile.y],
                     enabled: character.enabled,
                     currentAnim: character.currentAnim,
@@ -674,7 +679,7 @@ function gameLoop(timestamp) {
         currentFrame = Math.floor(animTime);
 
         ctx.fillStyle = 'black'
-        if (editing) {
+        if (mode == MODE_EDITOR) {
             ctx.fillStyle = 'white'
         }
         ctx.strokeStyle = 'black'
@@ -783,8 +788,6 @@ function endGame() {
     // Reset selected button
     selectedButton = null
 
-    // Reset editing mode
-    editing = false
 
     console.log("Game ended")
 }
@@ -814,7 +817,7 @@ function initializeBoard(onClick) {
 }
 
 async function gameMode() {
-    editing = false
+    mode = MODE_PLAYING
     loadLevel(LEVELS[currentLevel]);
 
     // FIXME
@@ -1093,7 +1096,7 @@ function addRemoveItem(x, y, items, imgs, value) {
 
 
 function editMode() {
-    editing = true
+    mode = MODE_EDITOR
     buttons = []
     loadLevel(LEVELS[currentLevel]);
 
@@ -1324,47 +1327,48 @@ function closeConnectionPanel() {
 }
 
 function onKeyDown(e) {
-    e.preventDefault()
-    switch (e.key.toLowerCase()) {
-        case "arrowup":
-            // Up pressed
-            onCoordsClick(movementButtonsConfig[0].x, movementButtonsConfig[0].y)
-            break;
-        case "arrowright":
-            // Right pressed
-            onCoordsClick(movementButtonsConfig[1].x, movementButtonsConfig[1].y)
-            break;
-        case "arrowdown":
-            // Down pressed
-            onCoordsClick(movementButtonsConfig[2].x, movementButtonsConfig[2].y)
-            break;
-        case "arrowleft":
-            onCoordsClick(movementButtonsConfig[3].x, movementButtonsConfig[3].y)
-            break;
-        case "p":
-            onCoordsClick(TILE_SIZE * 9, 0)
-            break;
-        case "1":
-            if (characters[0].enabled) { selectCharacter(0) }
-            break;
-        case "2":
-            if (characters[0].enabled) { selectCharacter(1) }
-            break;
-        case "3":
-            if (characters[0].enabled) { selectCharacter(2) }
-            break;
-        case "4":
-            if (characters[0].enabled) { selectCharacter(3) }
-            break;
-        case "tab":
-            for (i = 1; i < 3; i++) {
-                let num = (selectedCharacter + i) % MAX_CHARACTERS
-                if (characters[num].enabled) {
-                    selectCharacter(num)
-                    break
+    if (mode == MODE_PLAYING) {
+        e.preventDefault()
+        switch (e.key.toLowerCase()) {
+            case "arrowup":
+                // Up pressed
+                onCoordsClick(movementButtonsConfig[0].x, movementButtonsConfig[0].y)
+                break;
+            case "arrowright":
+                // Right pressed
+                onCoordsClick(movementButtonsConfig[1].x, movementButtonsConfig[1].y)
+                break;
+            case "arrowdown":
+                // Down pressed
+                onCoordsClick(movementButtonsConfig[2].x, movementButtonsConfig[2].y)
+                break;
+            case "arrowleft":
+                onCoordsClick(movementButtonsConfig[3].x, movementButtonsConfig[3].y)
+                break;
+            case "p":
+                onCoordsClick(TILE_SIZE * 9, 0)
+                break;
+            case "1":
+                if (characters[0].enabled) { selectCharacter(0) }
+                break;
+            case "2":
+                if (characters[0].enabled) { selectCharacter(1) }
+                break;
+            case "3":
+                if (characters[0].enabled) { selectCharacter(2) }
+                break;
+            case "4":
+                if (characters[0].enabled) { selectCharacter(3) }
+                break;
+            case "tab":
+                for (i = 1; i < 3; i++) {
+                    let num = (selectedCharacter + i) % MAX_CHARACTERS
+                    if (characters[num].enabled) {
+                        selectCharacter(num)
+                        break
+                    }
                 }
-            }
-
+        }
     }
 }
 
