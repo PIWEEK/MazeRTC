@@ -18,6 +18,22 @@ const LEVELS = [
                 exitX: 1,
                 exitY: 5,
             },
+            {
+                num: 2,
+                enabled: false,
+                x: 3,
+                y: 5,
+                exitX: 1,
+                exitY: 5,
+            },
+            {
+                num: 3,
+                enabled: false,
+                x: 3,
+                y: 5,
+                exitX: 1,
+                exitY: 5,
+            }
         ]
     },
     {
@@ -39,6 +55,22 @@ const LEVELS = [
                 exitX: 1,
                 exitY: 5,
             },
+            {
+                num: 2,
+                enabled: false,
+                x: 3,
+                y: 5,
+                exitX: 1,
+                exitY: 5,
+            },
+            {
+                num: 3,
+                enabled: false,
+                x: 3,
+                y: 5,
+                exitX: 1,
+                exitY: 5,
+            }
         ],
         doors: [
             {
@@ -73,6 +105,22 @@ const LEVELS = [
                 exitX: 1,
                 exitY: 5,
             },
+            {
+                num: 2,
+                enabled: false,
+                x: 3,
+                y: 5,
+                exitX: 1,
+                exitY: 5,
+            },
+            {
+                num: 3,
+                enabled: false,
+                x: 3,
+                y: 5,
+                exitX: 1,
+                exitY: 5,
+            }
         ]
     },
     {
@@ -94,6 +142,22 @@ const LEVELS = [
                 exitX: 1,
                 exitY: 5,
             },
+            {
+                num: 2,
+                enabled: false,
+                x: 3,
+                y: 5,
+                exitX: 1,
+                exitY: 5,
+            },
+            {
+                num: 3,
+                enabled: false,
+                x: 3,
+                y: 5,
+                exitX: 1,
+                exitY: 5,
+            }
         ],
         doors: [
             {
@@ -139,6 +203,22 @@ const LEVELS = [
                 exitX: 1,
                 exitY: 5,
             },
+            {
+                num: 2,
+                enabled: false,
+                x: 3,
+                y: 5,
+                exitX: 1,
+                exitY: 5,
+            },
+            {
+                num: 3,
+                enabled: false,
+                x: 3,
+                y: 5,
+                exitX: 1,
+                exitY: 5,
+            }
         ],
         doors: [
             {
@@ -184,6 +264,22 @@ const LEVELS = [
                 exitX: 1,
                 exitY: 5,
             },
+            {
+                num: 2,
+                enabled: false,
+                x: 4,
+                y: 5,
+                exitX: 1,
+                exitY: 5,
+            },
+            {
+                num: 3,
+                enabled: false,
+                x: 3,
+                y: 5,
+                exitX: 1,
+                exitY: 5,
+            }
         ],
         doors: [
             {
@@ -207,6 +303,68 @@ const LEVELS = [
                 value: 1,
                 x: 1,
                 y: 4,
+            },
+        ]
+    },
+    {
+        map: [7, 1, 1, 1, 1, 5, 4, 0, 0, 0, 0, 2, 4, 0, 4, 0, 0, 2, 4, 0, 0, 0, 0, 2, 4, 0, 0, 0, 0, 2, 10, 3, 3, 3, 3, 8],
+        characters: [
+            {
+                num: 0,
+                enabled: true,
+                x: 0,
+                y: 0,
+                exitX: 5,
+                exitY: 0,
+            },
+            {
+                num: 1,
+                enabled: true,
+                x: 0,
+                y: 1,
+                exitX: 5,
+                exitY: 1,
+            },
+            {
+                num: 2,
+                enabled: true,
+                x: 0,
+                y: 2,
+                exitX: 5,
+                exitY: 2,
+            },
+            {
+                num: 3,
+                enabled: true,
+                x: 0,
+                y: 3,
+                exitX: 5,
+                exitY: 3,
+            },
+        ],
+        doors: [
+        ],
+        plates: [
+        ],
+        holes: [
+            {
+                value: 3,
+                x: 2,
+                y: 2,
+            },
+        ],
+        traps: [
+            {
+                value: 0,
+                x: 2,
+                y: 1,
+            },
+        ],
+        teleports: [
+            {
+                value: 0,
+                x: 2,
+                y: 3,
             },
         ]
     }

@@ -4,7 +4,7 @@ const TILE_SIZE = 128
 const TILE_OFFSET_X = 256
 const TILE_OFFSET_Y = 128
 const MAX_FRAMES = 30
-const MAX_CHARACTERS = 2
+const MAX_CHARACTERS = 4
 
 const TILE_OFFSET_EDITOR = 4
 
@@ -30,6 +30,12 @@ const SELECTED_CHARACTER_COLOR = '#00ff00'
 let controls = []
 let doorsImgs = []
 let doors = []
+let holesImgs = []
+let holes = []
+let trapImg
+let traps = []
+let teleportImg
+let teleports = []
 let plates = []
 
 let animTime = 0
@@ -42,7 +48,7 @@ let characters = []
 let movements = {}
 let selectedButton = null
 let lastId = -1
-let currentLevel = 5
+let currentLevel = 6
 let commands = []
 let selectedCharacter = 0
 let moving = false
@@ -105,12 +111,9 @@ async function preloadCharacter(num) {
     img = new Image()
     img.src = "img/characters/" + num + "/idle/000.png"
     character.anims.idle.push(img)
+    character.anims.exit = img // Use the first frame of idle as exit animation
+    character.img.base = img // Use the first frame of idle as base animation
 
-    character.anims.exit = [character.anims.idle[0]] // Use the first frame of idle as exit animation
-
-    img = new Image();
-    img.src = "img/characters/" + num + "/base.png"
-    character.img.base = img
 
     img = new Image();
     img.src = "img/characters/" + num + "/exit.png"
@@ -172,6 +175,23 @@ async function preloadPowers() {
     powers = [
         await preloadPower("jump")
     ]
+
+    let img = new Image();
+    img.src = "img/trap.png"
+    trapImg = img
+
+    img = new Image();
+    img.src = "img/teleport.png"
+    teleportImg = img
+
+
+    for (let i = 0; i < 4; i++) {
+        img = new Image();
+        img.src = "img/holes/" + i + ".png"
+        holesImgs.push(img)
+    }
+
+
 }
 
 async function preloadDoor(name) {
@@ -312,35 +332,35 @@ function addShadow(ctx) {
 }
 
 function drawCharacter(character, delta) {
-    // if (character.enabled) {
-    currentFrame += character.num * 10
-    let inc = SPEED * delta
-    // Animation
-    if (character.drawX < character.drawTargetX) {
-        character.drawX = Math.min(character.drawX + inc, character.drawTargetX)
-    } else if (character.drawX > character.drawTargetX) {
-        character.drawX = Math.max(character.drawX - inc, character.drawTargetX)
-    } else if (character.drawY < character.drawTargetY) {
-        character.drawY = Math.min(character.drawY + inc, character.drawTargetY)
-    } else if (character.drawY > character.drawTargetY) {
-        character.drawY = Math.max(character.drawY - inc, character.drawTargetY)
+    if (character.enabled) {
+        currentFrame += character.num * 10
+        let inc = SPEED * delta
+        // Animation
+        if (character.drawX < character.drawTargetX) {
+            character.drawX = Math.min(character.drawX + inc, character.drawTargetX)
+        } else if (character.drawX > character.drawTargetX) {
+            character.drawX = Math.max(character.drawX - inc, character.drawTargetX)
+        } else if (character.drawY < character.drawTargetY) {
+            character.drawY = Math.min(character.drawY + inc, character.drawTargetY)
+        } else if (character.drawY > character.drawTargetY) {
+            character.drawY = Math.max(character.drawY - inc, character.drawTargetY)
+        }
+
+
+        const animationIndex = currentFrame % character.anims[character.currentAnim].length
+
+
+        ctx.save()
+        if (character.num === selectedCharacter) {
+            addShadow(ctx);
+        }
+
+        if (character.currentAnim === "exit") {
+            ctx.globalAlpha = 0.5;
+        }
+        ctx.drawImage(character.anims[character.currentAnim][animationIndex], character.drawX, character.drawY);
+        ctx.restore();
     }
-
-
-    const animationIndex = currentFrame % character.anims[character.currentAnim].length
-
-
-    ctx.save()
-    if (character.num === selectedCharacter) {
-        addShadow(ctx);
-    }
-
-    if (character.currentAnim === "exit") {
-        ctx.globalAlpha = 0.5;
-    }
-    ctx.drawImage(character.anims[character.currentAnim][animationIndex], character.drawX, character.drawY);
-    ctx.restore();
-    // }
 }
 
 function drawCharacters(delta) {
@@ -368,11 +388,12 @@ function drawDoors(delta) {
     })
 }
 
-function drawPlates(delta) {
-    plates.forEach(plate => {
-        ctx.drawImage(plate.img, plate.x * TILE_SIZE + TILE_OFFSET_X, plate.y * TILE_SIZE + TILE_OFFSET_Y);
+function drawItems(items) {
+    items.forEach(item => {
+        ctx.drawImage(item.img, item.x * TILE_SIZE + TILE_OFFSET_X, item.y * TILE_SIZE + TILE_OFFSET_Y);
     })
 }
+
 
 
 function emptyTile(tile) {
@@ -616,13 +637,21 @@ function gameLoop(timestamp) {
         currentFrame = Math.floor(animTime);
 
         ctx.fillStyle = 'black'
+        if (editing) {
+            ctx.fillStyle = 'white'
+        }
         ctx.strokeStyle = 'black'
         ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        ctx.fillStyle = 'black'
 
         drawBoard(delta)
         drawExits()
         drawDoors()
-        drawPlates()
+        drawItems(plates)
+        drawItems(holes)
+        drawItems(teleports)
+        drawItems(traps)
         drawCharacters(delta)
         drawButtons()
 
@@ -727,6 +756,7 @@ function initializeBoard(onClick) {
 }
 
 async function gameMode() {
+    editing = false
     loadLevel(LEVELS[currentLevel]);
 
     // FIXME
@@ -892,10 +922,37 @@ function logLevel() {
         levelTxt += "    y: " + plate.y + ",\n"
         levelTxt += "    },\n"
     })
+    levelTxt += "  ],\n"
+
+    levelTxt += "  holes: [\n"
+    holes.forEach(hole => {
+        levelTxt += "    {\n"
+        levelTxt += "    value: " + hole.value + ",\n"
+        levelTxt += "    x: " + hole.x + ",\n"
+        levelTxt += "    y: " + hole.y + ",\n"
+        levelTxt += "    },\n"
+    })
+    levelTxt += "  ],\n"
+
+    levelTxt += "  traps: [\n"
+    traps.forEach(trap => {
+        levelTxt += "    {\n"
+        levelTxt += "    value: " + trap.value + ",\n"
+        levelTxt += "    x: " + trap.x + ",\n"
+        levelTxt += "    y: " + trap.y + ",\n"
+        levelTxt += "    },\n"
+    })
+    levelTxt += "  ],\n"
+
+    levelTxt += "  teleports: [\n"
+    teleports.forEach(teleport => {
+        levelTxt += "    {\n"
+        levelTxt += "    value: " + teleport.value + ",\n"
+        levelTxt += "    x: " + teleport.x + ",\n"
+        levelTxt += "    y: " + teleport.y + ",\n"
+        levelTxt += "    },\n"
+    })
     levelTxt += "  ]\n"
-
-
-
 
     levelTxt += "}\n"
 
@@ -905,6 +962,7 @@ function logLevel() {
 function addDoor(x, y, value, open) {
     doors.push({ x: x, y: y, img: doorsImgs.closed[value], imgOpen: doorsImgs.open[value], value: value, open: open })
 }
+
 
 function addRemoveDoor(x, y, value, open) {
     let doorPos = -1
@@ -922,27 +980,30 @@ function addRemoveDoor(x, y, value, open) {
     }
 }
 
-function addPlate(x, y, value) {
-    plates.push({ x: x, y: y, img: doorsImgs.plates[value], value: value })
+function addItem(x, y, items, imgs, value) {
+    items.push({ x: x, y: y, img: imgs[value], value: value })
 }
 
-function addRemovePlate(x, y, value) {
-    let platePos = -1
-    for (i = 0; i < plates.length; i++) {
-        if ((plates[i].x == x) && (plates[i].y == y)) {
-            platePos = i
+function addRemoveItem(x, y, items, imgs, value) {
+    let pos = -1
+    for (i = 0; i < items.length; i++) {
+        if ((items[i].x == x) && (items[i].y == y)) {
+            pos = i
             break
         }
     }
 
-    if (platePos != -1) {
-        plates.splice(platePos, 1)
+    if (pos != -1) {
+        items.splice(pos, 1)
     } else {
-        addPlate(x, y, value)
+        addItem(x, y, items, imgs, value)
     }
 }
 
+
+
 function editMode() {
+    editing = true
     buttons = []
     loadLevel(LEVELS[currentLevel]);
 
@@ -963,7 +1024,6 @@ function editMode() {
         }
 
     }
-
 
     x = 15
     y += 60
@@ -1001,6 +1061,23 @@ function editMode() {
         }
     }
 
+    x = 15
+    y += 60
+
+    for (i = 0; i < holesImgs.length; i++) {
+        addButton(holesImgs[i], null, x, y, 50, 50, i, "editHole", onClick)
+        x += 60
+        if (x > 200) {
+            x = 15
+            y += 60
+        }
+    }
+
+    x = 15
+    addButton(trapImg, null, x, y, 50, 50, i, "editTrap", onClick)
+    x += 60
+    addButton(teleportImg, null, x, y, 50, 50, i, "editTeleport", onClick)
+
 
 
     let onBoardClick = (button) => {
@@ -1013,8 +1090,7 @@ function editMode() {
                 characters[selectedButton.value].enabled = false
             } else {
                 characters[selectedButton.value].enabled = true
-                characters[selectedButton.value].x = bx
-                characters[selectedButton.value].y = by
+                setCharacterPos(characters[selectedButton.value], bx, by)
             }
         } else if (selectedButton.type == "editExit") {
             characters[selectedButton.value].exitX = bx
@@ -1022,7 +1098,13 @@ function editMode() {
         } else if (selectedButton.type == "editDoor") {
             addRemoveDoor(bx, by, selectedButton.value)
         } else if (selectedButton.type == "editPlate") {
-            addRemovePlate(bx, by, selectedButton.value)
+            addRemoveItem(bx, by, plates, doorsImgs.plates, selectedButton.value)
+        } else if (selectedButton.type == "editHole") {
+            addRemoveItem(bx, by, holes, holesImgs, selectedButton.value)
+        } else if (selectedButton.type == "editTrap") {
+            addRemoveItem(bx, by, traps, [trapImg], 0)
+        } else if (selectedButton.type == "editTeleport") {
+            addRemoveItem(bx, by, teleports, [teleportImg], 0)
         }
 
 
@@ -1037,6 +1119,9 @@ function editMode() {
 
 function loadLevel(level) {
 
+    traps = []
+    holes = []
+    teleports = []
     plates = []
     doors = []
 
@@ -1066,7 +1151,25 @@ function loadLevel(level) {
 
     if (level.plates) {
         level.plates.forEach(plate => {
-            addPlate(plate.x, plate.y, plate.value)
+            addItem(plate.x, plate.y, plates, doorsImgs.plates, plate.value)
+        })
+    }
+
+    if (level.traps) {
+        level.traps.forEach(trap => {
+            addItem(trap.x, trap.y, traps, [trapImg], 0)
+        })
+    }
+
+    if (level.teleports) {
+        level.teleports.forEach(teleport => {
+            addItem(teleport.x, teleport.y, teleports, [teleportImg], 0)
+        })
+    }
+
+    if (level.holes) {
+        level.holes.forEach(hole => {
+            addItem(hole.x, hole.y, holes, holesImgs, hole.value)
         })
     }
 }
@@ -1156,6 +1259,21 @@ function getGameState() {
             x: plate.x,
             y: plate.y
         })),
+        holes: holes.map(hole => ({
+            value: hole.value,
+            x: hole.x,
+            y: hole.y
+        })),
+        traps: traps.map(trap => ({
+            value: trap.value,
+            x: trap.x,
+            y: trap.y
+        })),
+        teleports: teleports.map(teleport => ({
+            value: teleport.value,
+            x: teleport.x,
+            y: teleport.y
+        })),
 
         board: board,
         animTime: animTime,
@@ -1182,6 +1300,13 @@ function setCharacterPos(character, x, y) {
 function setGameState(gameState) {
     board = gameState.board || board
 
+    traps = []
+    holes = []
+    teleports = []
+    plates = []
+    doors = []
+
+
     // Restore characters if gameState has character data
     if (gameState.characters && gameState.characters.length > 0) {
         gameState.characters.forEach((charData, index) => {
@@ -1195,7 +1320,7 @@ function setGameState(gameState) {
         })
     }
 
-    doors = []
+
 
     if (gameState.doors && gameState.doors.length > 0) {
         gameState.doors.forEach((doorData) => {
@@ -1203,11 +1328,29 @@ function setGameState(gameState) {
         })
     }
 
-    plates = []
+
 
     if (gameState.plates && gameState.plates.length > 0) {
         gameState.plates.forEach((plateData) => {
-            addPlate(plateData.x, plateData.y, plateData.value)
+            addItem(plateData.x, plateData.y, plates, doorsImgs.plates, plateData.value)
+        })
+    }
+
+    if (gameState.teleports && gameState.teleports.length > 0) {
+        gameState.teleports.forEach((teleportData) => {
+            addItem(teleportData.x, teleportData.y, teleports, [teleportImg], 0)
+        })
+    }
+
+    if (gameState.traps && gameState.traps.length > 0) {
+        gameState.traps.forEach((trapData) => {
+            addItem(trapData.x, trapData.y, traps, [trapImg], 0)
+        })
+    }
+
+    if (gameState.holes && gameState.holes.length > 0) {
+        gameState.holes.forEach((holeData) => {
+            addItem(holeData.x, holeData.y, holes, doorsImgs.holes, holeData.value)
         })
     }
 
