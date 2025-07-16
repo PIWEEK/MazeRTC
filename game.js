@@ -84,6 +84,7 @@ async function preloadCharacter(num) {
         drawTargetX: 0,
         drawTargetY: 0,
         currentAnim: "idle",
+        jumping: false,
         anims: {
             idle: [],
             walkU: [],
@@ -272,7 +273,10 @@ function drawButton(button) {
 
 function drawButtons() {
     buttons.forEach(button => {
-        drawButton(button)
+
+        if ((button.type != "jump") || (selectedCharacter == 0)) {
+            drawButton(button)
+        }
     })
 }
 
@@ -335,6 +339,10 @@ function drawCharacter(character, delta) {
     if (character.enabled) {
         currentFrame += character.num * 10
         let inc = SPEED * delta
+        if (character.jumping) {
+            inc *= 2
+        }
+
         // Animation
         if (character.drawX < character.drawTargetX) {
             character.drawX = Math.min(character.drawX + inc, character.drawTargetX)
@@ -542,6 +550,10 @@ function move() {
                 characters[command.character].drawTargetX = targetTile.x * TILE_SIZE + TILE_OFFSET_X
                 characters[command.character].drawTargetY = targetTile.y * TILE_SIZE + TILE_OFFSET_Y
 
+                if (command.value >= JUMP) {
+                    characters[command.character].jumping = true
+                }
+
                 if (targetTile.x > characters[command.character].x) {
                     characters[command.character].currentAnim = "walkR"
                 } else if (targetTile.x < characters[command.character].x) {
@@ -558,7 +570,8 @@ function move() {
                     character: selectedCharacter,
                     position: [targetTile.x, targetTile.y],
                     enabled: characters[command.character].enabled,
-                    currentAnim: characters[command.character].currentAnim
+                    currentAnim: characters[command.character].currentAnim,
+                    jumping: characters[command.character].jumping
                 })
 
 
@@ -574,6 +587,7 @@ function move() {
 function endMove(chNum, targetTile) {
     moving = false
     let character = characters[chNum]
+    character.jumping = false
 
     character.currentAnim = "idle"
 
@@ -606,13 +620,14 @@ function checkGameEnd() {
     }
 }
 
-function updateCharacter(character, position, enabled, currentAnim) {
+function updateCharacter(character, position, enabled, currentAnim, jumping) {
     console.log("Updating character", position)
     const [x, y] = position
     characters[character].drawTargetX = x * TILE_SIZE + TILE_OFFSET_X
     characters[character].drawTargetY = y * TILE_SIZE + TILE_OFFSET_Y
     characters[character].enabled = enabled
     characters[character].currentAnim = currentAnim
+    characters[character].jumping = jumping
 
     setTimeout(() => {
         endMove(character, { x: x, y: y })
@@ -673,7 +688,18 @@ function onCanvasClick(e) {
     for (let i = 0; i < characters.length; i++) {
         const [x, y] = coordsToTile(e.offsetX, e.offsetY);
         const character = characters[i];
-        if (character.x === x && character.y === y) {
+        if ((character.x === x && character.y === y) && (selectedCharacter != i)) {
+            // Unselect all buttons
+            buttons.forEach(button => {
+                button.selected = false
+            });
+
+            // Unselect all powers
+            powers.forEach(powers => {
+                powers.selected = false
+            });
+
+
             selectedCharacter = i;
             break
         }
@@ -867,8 +893,10 @@ function setMovementButtons(movements) {
 
 
     let onJump = (button) => {
-        button.selected = !button.selected
-        powers[0].selected = !powers[0].selected
+        if (selectedCharacter == 0) {
+            button.selected = !button.selected
+            powers[0].selected = !powers[0].selected
+        }
     }
 
     // Jump button
@@ -1230,7 +1258,7 @@ function updateGame(gameState) {
 
 function closeConnectionPanel() {
     connectionPanel.style.display = 'none'
-    buttonsContainer.style.display = 'flex'
+    buttonsContainer.style.display = 'none'
 }
 
 function onKeyDown(e) {
@@ -1350,7 +1378,7 @@ function setGameState(gameState) {
 
     if (gameState.holes && gameState.holes.length > 0) {
         gameState.holes.forEach((holeData) => {
-            addItem(holeData.x, holeData.y, holes, doorsImgs.holes, holeData.value)
+            addItem(holeData.x, holeData.y, holes, holesImgs, holeData.value)
         })
     }
 

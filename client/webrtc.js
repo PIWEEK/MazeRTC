@@ -1,5 +1,5 @@
 const WSSPORT = 8090 // FIXME use envvar
-const WSHOST =  'localhost' // FIXME use envvar
+const WSHOST = 'localhost' // FIXME use envvar
 
 class WebRTCClient {
     constructor(window) {
@@ -18,7 +18,7 @@ class WebRTCClient {
     }
 
     async initializeSignaling() {
-        const protocol = window.location.protocol.includes('https') ? 'wss': 'ws'
+        const protocol = window.location.protocol.includes('https') ? 'wss' : 'ws'
         const signalingServerUrl = `${protocol}://${WSHOST}:${WSSPORT}`
         this.signalingClient = new SignalingClient(signalingServerUrl);
 
@@ -309,7 +309,7 @@ class WebRTCClient {
             if (message.type === 'updateCharacter') {
                 console.log('Character update received:', message.position)
                 if (this.window && this.window.updateCharacter) {
-                    this.window.updateCharacter(message.character, message.position, message.enabled, message.currentAnim)
+                    this.window.updateCharacter(message.character, message.position, message.enabled, message.currentAnim, message.jumping)
                 }
                 return
             }
