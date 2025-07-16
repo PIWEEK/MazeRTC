@@ -140,11 +140,7 @@ async function preloadControl(name) {
 
     img = new Image();
     img.src = "img/buttons/" + name + "_pressed.png"
-    control.pressed = img
-
-    img = new Image();
-    img.src = "img/buttons/" + name + "_disabled.png"
-    control.disabled = img
+    control.imgSelected = img
 
     return control
 }
@@ -911,6 +907,11 @@ function setMovementButtons(movements) {
         } else {
             addCommand({ character: selectedCharacter, value: button.value })
         }
+
+        button.selected = true
+        setTimeout(() => {
+            button.selected = false
+        }, 250)
     }
 
     buttons = []
@@ -919,7 +920,7 @@ function setMovementButtons(movements) {
         const config = movementButtonsConfig[buttonIndex];
         addButton(
             config.control.default,
-            null,
+            config.control.imgSelected,
             config.x,
             config.y,
             TILE_SIZE,
