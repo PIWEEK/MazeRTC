@@ -55,7 +55,7 @@ let characters = []
 let movements = {}
 let selectedButton = null
 let lastId = -1
-let currentLevel = 6
+let currentLevel = 7
 let commands = []
 let selectedCharacter = 0
 let moving = false
@@ -87,6 +87,9 @@ async function preloadCharacter(num) {
         y: 0,
         exitX: 0,
         exitY: 0,
+        exitKeyX: -1,
+        exitKeyY: -1,
+        exitOpen: false,
         drawX: 0,
         drawY: 0,
         drawTargetX: 0,
@@ -127,6 +130,15 @@ async function preloadCharacter(num) {
     img = new Image();
     img.src = "img/characters/" + num + "/exit.png"
     character.img.exit = img
+
+    img = new Image();
+    img.src = "img/characters/" + num + "/exit_closed.png"
+    character.img.exitClosed = img
+
+    img = new Image();
+    img.src = "img/characters/" + num + "/exit_key.png"
+    character.img.exitKey = img
+
     return character
 }
 
@@ -321,12 +333,6 @@ function drawTile(x, y, tileNum,) {
     ctx.drawImage(tiles[tileNum], x, y)
 }
 
-function drawExit(x, y, targetNum) {
-    x = TILE_OFFSET_X + (x * TILE_SIZE)
-    y = TILE_OFFSET_Y + (y * TILE_SIZE)
-
-    ctx.drawImage(target[targetNum], x, y);
-}
 
 function drawBoard(delta) {
     for (var y = 0; y < 6; y++) {
@@ -362,11 +368,6 @@ function drawCharacter(character, delta) {
 
 
         const animationIndex = currentFrame % character.anims[character.currentAnim].length
-        console.log("animationIndex" + animationIndex)
-        console.log("currentFrame" + currentFrame)
-        console.log("character.anims[character.currentAnim].length" + character.anims[character.currentAnim].length)
-
-
 
         ctx.save()
         if (character.num === selectedCharacter) {
@@ -391,7 +392,15 @@ function drawCharacters(delta) {
 function drawExits(delta) {
     characters.forEach(character => {
         if (character.enabled) {
-            ctx.drawImage(character.img.exit, character.exitX * TILE_SIZE + TILE_OFFSET_X, character.exitY * TILE_SIZE + TILE_OFFSET_Y);
+            if (character.exitOpen) {
+                ctx.drawImage(character.img.exit, character.exitX * TILE_SIZE + TILE_OFFSET_X, character.exitY * TILE_SIZE + TILE_OFFSET_Y);
+            } else {
+                ctx.drawImage(character.img.exitClosed, character.exitX * TILE_SIZE + TILE_OFFSET_X, character.exitY * TILE_SIZE + TILE_OFFSET_Y);
+            }
+
+            if (character.exitKeyX != -1) {
+                ctx.drawImage(character.img.exitKey, character.exitKeyX * TILE_SIZE + TILE_OFFSET_X, character.exitKeyY * TILE_SIZE + TILE_OFFSET_Y);
+            }
         }
     })
 }
@@ -481,16 +490,17 @@ function getTile(x, y) {
 
 
 function getTargetTile(currentTile, value) {
-    if (value == 0) {
-        return getTile(currentTile.x, currentTile.y - 1)
-    } else if (value == 1) {
-        return getTile(currentTile.x + 1, currentTile.y)
-    } else if (value == 2) {
-        return getTile(currentTile.x, currentTile.y + 1)
-    } else if (value == 3) {
-        return getTile(currentTile.x - 1, currentTile.y)
+    if (currentTile) {
+        if (value == 0) {
+            return getTile(currentTile.x, currentTile.y - 1)
+        } else if (value == 1) {
+            return getTile(currentTile.x + 1, currentTile.y)
+        } else if (value == 2) {
+            return getTile(currentTile.x, currentTile.y + 1)
+        } else if (value == 3) {
+            return getTile(currentTile.x - 1, currentTile.y)
+        }
     }
-
 }
 
 function getWalkInfo(command) {
@@ -511,8 +521,10 @@ function getJumpInfo(command) {
     let targetTile2 = getTargetTile(targetTile, value)
 
 
-    if (canMove(currentTile, targetTile, value) && canMove(targetTile, targetTile2, value) && !emptyTile(targetTile) && emptyTile(targetTile2)) {
-        return [character, targetTile2]
+    if (targetTile && targetTile2) {
+        if (canMove(currentTile, targetTile, value) && canMove(targetTile, targetTile2, value) && !emptyTile(targetTile) && emptyTile(targetTile2)) {
+            return [character, targetTile2]
+        }
     }
 }
 
@@ -523,16 +535,17 @@ function getPushInfo(command) {
     let targetTile = getTargetTile(currentTile, value)
     let targetTile2 = getTargetTile(targetTile, value)
     let targetTile3 = getTargetTile(targetTile2, value)
+    if (targetTile && targetTile2 && targetTile3) {
+        let trap = findItem(traps, targetTile2.x, targetTile2.y)
+        let targetCharacter = findItem(characters, targetTile.x, targetTile.y)
 
-    let trap = findItem(traps, targetTile2.x, targetTile2.y)
-    let targetCharacter = findItem(characters, targetTile.x, targetTile.y)
-
-    if (targetCharacter &&
-        trap &&
-        canMove(currentTile, targetTile, value, command.character, true) &&
-        canMove(targetTile, targetTile2, value, command.character, true) &&
-        canMove(targetTile2, targetTile3, value, command.character, true)) {
-        return [targetCharacter, targetTile3]
+        if (targetCharacter &&
+            trap &&
+            canMove(currentTile, targetTile, value, command.character, true) &&
+            canMove(targetTile, targetTile2, value, command.character, true) &&
+            canMove(targetTile2, targetTile3, value, command.character, true)) {
+            return [targetCharacter, targetTile3]
+        }
     }
 }
 
@@ -552,6 +565,27 @@ function getMoveInfo(command) {
     } else if (command.value == TELEPORT) {
 
     }
+}
+
+function pushAnim(character, targetTile) {
+    let x = character.drawX
+    let y = character.drawY
+    character.drawTargetX = targetTile.x * TILE_SIZE + TILE_OFFSET_X
+    character.drawTargetY = targetTile.y * TILE_SIZE + TILE_OFFSET_Y
+    character.speed = SPEED * 8
+
+    setTimeout(() => {
+        character.drawTargetX = x
+        character.drawTargetY = y
+
+        setTimeout(() => {
+            character.drawX = x
+            character.drawY = y
+            character.speed = SPEED
+        }, 75)
+
+    }, 75)
+
 }
 
 
@@ -638,6 +672,13 @@ function move() {
                         character.currentAnim = "walkU"
                     }
 
+                    // Add push anim
+                    if ((command.value >= PUSH) && (command.value < TELEPORT)) {
+                        pushAnim(characters[command.character], targetTile)
+
+                    }
+
+
 
                     webrtcClient.sendMessage({
                         type: "updateCharacter",
@@ -673,11 +714,33 @@ function endMove(chNum, targetTile) {
         character.enabled = false
     }
 
+    checkOpenExits()
+
     checkGameEnd()
 }
 
+function checkOpenExits() {
+    let open = true
+    for (let i = 0; i < characters.length; i++) {
+        const character = characters[i];
+        if (character.exitOpen || character.x != character.exitKeyX || character.y != character.exitKeyY) {
+            open = false
+            break
+        }
+    }
+    if (open) {
+        characters.forEach(character => {
+            character.exitOpen = true
+        })
+    }
+}
+
 function checkCharacterInExit(character) {
-    return character.x === character.exitX && character.y === character.exitY;
+    return character.x === character.exitX && character.y === character.exitY && character.exitOpen;
+}
+
+function checkCharacterInExitKey(character) {
+    return character.x === character.exitKeyX && character.y === character.exitKeyY;
 }
 
 function checkGameEnd() {
@@ -1071,6 +1134,8 @@ function logLevel() {
         levelTxt += "    y: " + character.y + ",\n"
         levelTxt += "    exitX: " + character.exitX + ",\n"
         levelTxt += "    exitY: " + character.exitY + ",\n"
+        levelTxt += "    exitKeyX: " + character.exitKeyX + ",\n"
+        levelTxt += "    exitKeyY: " + character.exitKeyY + ",\n"
         levelTxt += "    },\n"
     })
     levelTxt += "  ],\n"
@@ -1202,15 +1267,12 @@ function editMode() {
     characters.forEach(character => {
         addButton(character.img.base, null, x, y, 50, 50, character.num, "editCharacter", onClick)
         addButton(character.img.exit, null, x + 60, y, 50, 50, character.num, "editExit", onClick)
-        x += 120
-        if (x > 200) {
-            x = 15
-            y += 60
-        }
+        addButton(character.img.exitKey, null, x + 120, y, 50, 50, character.num, "editExitKey", onClick)
+        y += 60
+        x = 15
     })
 
     x = 15
-    y += 60
 
     for (i = 0; i < doorsImgs.closed.length; i++) {
         addButton(doorsImgs.closed[i], null, x, y, 50, 50, i, "editDoor", onClick)
@@ -1253,19 +1315,28 @@ function editMode() {
 
     let onBoardClick = (button) => {
         var [bx, by] = coordsToTile(button.x + 1, button.y + 1)
+        let character = characters[selectedButton.value]
 
         if (selectedButton.type == "editTile") {
             board[by][bx] = selectedButton.value
         } else if (selectedButton.type == "editCharacter") {
-            if (characters[selectedButton.value].enabled && characters[selectedButton.value].x == bx && characters[selectedButton.value].y == by) {
-                characters[selectedButton.value].enabled = false
+            if (character.enabled && character.x == bx && character.y == by) {
+                character.enabled = false
             } else {
-                characters[selectedButton.value].enabled = true
-                setCharacterPos(characters[selectedButton.value], bx, by)
+                character.enabled = true
+                setCharacterPos(character, bx, by)
             }
-        } else if (selectedButton.type == "editExit") {
-            characters[selectedButton.value].exitX = bx
-            characters[selectedButton.value].exitY = by
+        } else if ((selectedButton.type == "editExit") && character.enabled) {
+            character.exitX = bx
+            character.exitY = by
+        } else if ((selectedButton.type == "editExitKey") && character.enabled) {
+            if (character.exitKeyX == bx && character.exitKeyY == by) {
+                character.exitKeyX = -1
+                character.exitKeyY = -1
+            } else {
+                character.exitKeyX = bx
+                character.exitKeyY = by
+            }
         } else if (selectedButton.type == "editDoor") {
             addRemoveDoor(bx, by, selectedButton.value)
         } else if (selectedButton.type == "editPlate") {
@@ -1310,6 +1381,16 @@ function loadLevel(level) {
 
         characters[i].exitX = level.characters[i].exitX
         characters[i].exitY = level.characters[i].exitY
+
+        characters[i].exitKeyX = -1
+        characters[i].exitKeyY = -1
+        characters[i].exitOpen = true
+
+        if ((level.characters[i].exitKeyX != null) && (level.characters[i].exitKeyX != -1)) {
+            characters[i].exitKeyX = level.characters[i].exitKeyX
+            characters[i].exitKeyY = level.characters[i].exitKeyY
+            characters[i].exitOpen = false
+        }
 
     }
 
@@ -1432,13 +1513,13 @@ function onKeyDown(e) {
                 if (characters[0].enabled) { selectCharacter(0) }
                 break;
             case "2":
-                if (characters[0].enabled) { selectCharacter(1) }
+                if (characters[1].enabled) { selectCharacter(1) }
                 break;
             case "3":
-                if (characters[0].enabled) { selectCharacter(2) }
+                if (characters[2].enabled) { selectCharacter(2) }
                 break;
             case "4":
-                if (characters[0].enabled) { selectCharacter(3) }
+                if (characters[3].enabled) { selectCharacter(3) }
                 break;
             case "tab":
                 for (i = 1; i < 4; i++) {
@@ -1499,9 +1580,6 @@ function getGameState() {
 }
 
 function setCharacterPos(character, x, y) {
-
-    console.log("setCharacterPos", x, y)
-
     character.x = x
     character.y = y
 
@@ -1531,6 +1609,16 @@ function setGameState(gameState) {
                 characters[index].exitX = charData.exitX
                 characters[index].exitY = charData.exitY
                 characters[index].currentAnim = charData.currentAnim
+
+                characters[index].exitKeyX = -1
+                characters[index].exitKeyY = -1
+                characters[index].exitOpen = true
+
+                if ((charData.exitKeyX != null) && (charData.exitKeyX != -1)) {
+                    characters[index].exitKeyX = charData.exitKeyX
+                    characters[index].exitKeyY = charData.exitKeyY
+                    characters[index].exitOpen = false
+                }
             }
         })
     }
