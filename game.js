@@ -23,8 +23,10 @@ const hostButton = document.getElementById('hostButton')
 const joinButton = document.getElementById('joinButton')
 const connectionPanel = document.getElementById('connectionPanel')
 const statusText = document.getElementById('statusText')
+const createRoomButton = document.getElementById('createRoomButton')
 const joinRoomButton = document.getElementById('joinRoomButton')
-const webrtcClient = new WebRTCClient(window)
+const startGameButton = document.getElementById('startGameButton')
+const webRTCClients = {}
 const tiles = []
 const SELECTED_CHARACTER_COLOR = '#00ff00'
 let controls = []
@@ -47,6 +49,60 @@ let commands = []
 let selectedCharacter = 0
 let moving = false
 let powers = []
+let clientId = null
+
+const protocol = window.location.protocol.includes('https') ? 'wss': 'ws'
+const webSocketServerURL = `${protocol}://${WSHOST}:${WSSPORT}`
+const ws = new WebSocket(webSocketServerURL)
+let isHost = false
+
+// Handle connection opened
+ws.onopen = (event) => {
+    console.log('WebSocket connection established');
+    // You might want to send initial data or update UI here
+}
+
+// Handle errors
+ws.onerror = (event) => {
+    console.error('WebSocket error:', event);
+}
+
+// Handle connection closed
+ws.onclose = (event) => {
+    console.log('WebSocket connection closed:', event.code, event.reason);
+    // You might want to implement reconnection logic here
+}
+
+ws.onmessage = async (event) => {
+    try {
+        const data = JSON.parse(event.data);
+        await handleWebSocketMessage(data);
+    } catch (error) {
+        console.error('Error parsing message:', error);
+    }
+}
+
+let finishedClients = 0
+
+async function handleWebSocketMessage(data) {
+    let client = null
+    switch (data.type) {
+        case 'joined-room':
+            console.log("Joined room:", data.roomId, "as client:", data.clientId)
+            client = new WebRTCClient()
+            client.init(isHost, data.roomId, data.clientId)
+            webRTCClients[data.clientId] = client
+            break;
+        case 'joined':
+            console.log('joined - initialize signaling', data.roomId, 'as client', data.clientId);
+            client = webRTCClients[data.clientId]
+            // handle existing client
+            const host = webRTCClients["host"]
+            await client.initializeSignaling(host)
+            webRTCClients[data.clientId] = client
+            break
+    }
+}
 
 var board = [
     [7, 1, 1, 1, 1, 5],
@@ -152,7 +208,6 @@ async function preloadControls() {
     ]
 }
 
-
 async function preloadPower(name) {
     let power = { selected: false }
     let img = new Image();
@@ -165,8 +220,6 @@ async function preloadPower(name) {
 
     return power;
 }
-
-
 
 async function preloadPowers() {
     powers = [
@@ -531,16 +584,16 @@ function move() {
                     characters[command.character].currentAnim = "walkU"
                 }
 
-
-                webrtcClient.sendMessage({
-                    type: "updateCharacter",
-                    character: selectedCharacter,
-                    position: [targetTile.x, targetTile.y],
-                    enabled: characters[command.character].enabled,
-                    currentAnim: characters[command.character].currentAnim
-                })
-
-
+                for (const clientId in webRTCClients) {
+                    const webrtcClient = webRTCClients[clientId];
+                    webrtcClient.sendMessage({
+                        type: "updateCharacter",
+                        character: selectedCharacter,
+                        position: [targetTile.x, targetTile.y],
+                        enabled: characters[command.character].enabled,
+                        currentAnim: characters[command.character].currentAnim
+                    })
+                }
             }
 
             setTimeout(() => {
@@ -705,17 +758,19 @@ function endGame() {
 function hostGame() {
     console.log("Hosting game...")
     connectionPanel.style.display = 'block'
-    document.getElementById('roomSection').style.display = 'block'
+    document.getElementById('createRoomSection').style.display = 'block'
     buttonsContainer.style.display = 'none'
     statusText.textContent = 'Enter a room name to create/join a room'
+    isHost = true
 }
 
 function joinGame() {
     console.log("Joining game...")
     connectionPanel.style.display = 'block'
-    document.getElementById('roomSection').style.display = 'block'
+    document.getElementById('joinRoomSection').style.display = 'block'
     buttonsContainer.style.display = 'none'
     statusText.textContent = 'Enter a room name to join an existing room'
+    isHost = false
 }
 
 function initializeBoard(onClick) {
@@ -733,12 +788,8 @@ async function gameMode() {
     characters[0].enabled = true;
     characters[1].enabled = true;
 
-    console.log(webrtcClient)
-
-    const clients = await webrtcClient.getClients()
-    const allClientIds = Object.keys(clients)
+    const allClientIds = Object.keys(webRTCClients)
     const totalPeers = allClientIds.length
-    const currentClientId = webrtcClient.peerId
 
     movements = {};
 
@@ -748,7 +799,7 @@ async function gameMode() {
     if (totalPeers === 1) {
         // Single player: all 4 buttons
         assignments = [
-            { clientId: currentClientId, buttons: [0, 1, 2, 3] }
+            { clientId: allClientIds[0], buttons: [0, 1, 2, 3] }
         ];
     } else if (totalPeers === 2) {
         // Two players: each gets 2 buttons (randomly assigned)
@@ -783,15 +834,19 @@ async function gameMode() {
         movements[assignment.clientId] = assignment.buttons;
     });
 
-    console.log("game mode movements:", movements);
-
-    setMovementButtons(movements);
+    console.log("game mode movements:", movements); 
 
     const gameState = getGameState()
-    webrtcClient.sendMessage({
-        type: 'gameStateUpdate',
-        gameState: gameState
-    })
+    setMovementButtons(movements);
+
+    for (const clientId in webRTCClients) {
+        const webrtcClient = webRTCClients[clientId];
+        console.log("@@@ WebRTC Client:", webrtcClient)
+        webrtcClient.sendMessage({
+            type: 'gameStateUpdate',
+            gameState: gameState
+        })
+    }
 
     let onBoardClick = (button) => { }
 
@@ -800,8 +855,7 @@ async function gameMode() {
 }
 
 function setMovementButtons(movements) {
-    const currentClientId = webrtcClient.signalingClient ? webrtcClient.signalingClient.clientId : webrtcClient.peerId || "default";
-    const myButtons = movements[currentClientId] || [];
+    const myButtons = movements[clientId] || [];
 
     const buttonConfigs = [
         { control: controls[0], x: WIDTH / 2 - TILE_SIZE / 4, y: 0, value: 0 }, // UP
@@ -1089,7 +1143,9 @@ function initialize() {
     editorButton.addEventListener('click', editMode)
     hostButton.addEventListener('click', hostGame)
     joinButton.addEventListener('click', joinGame)
+    createRoomButton.addEventListener('click', createRoom)
     joinRoomButton.addEventListener('click', joinRoom)
+    startGameButton.addEventListener('click', startGame)
 
     window.addEventListener('resize', resizeCanvas)
     canvas.addEventListener('click', onCanvasClick)
@@ -1106,15 +1162,6 @@ function updateConnectionStatus(status) {
     if (status === 'Connected - Ready to play!') {
         setTimeout(() => {
             closeConnectionPanel()
-
-            if (webrtcClient.isHost) {
-                gameMode()
-                const gameState = getGameState()
-                webrtcClient.sendMessage({
-                    type: 'gameStateUpdate',
-                    gameState: gameState
-                });
-            }
         }, 2000)
     }
 }
@@ -1221,28 +1268,82 @@ function saveGameState() {
     console.log("Game state saved")
 }
 
-async function joinRoom() {
-    const roomName = document.getElementById('roomInput').value.trim()
+async function createRoom() {
+    const roomName = document.getElementById('createRoomInput').value.trim()
+
     if (!roomName) {
         alert('Please enter a room name')
         return
     }
 
     try {
-        statusText.textContent = 'Connecting to signaling server...'
-
-        // Initialize signaling if not already done
-        if (!webrtcClient.signalingClient) {
-            await webrtcClient.initializeSignaling()
-        }
-
-        // Join the room
-        await webrtcClient.joinRoom(roomName)
-
-        document.getElementById('roomStatus').textContent = `Joined room: ${roomName}`
+        clientId = "host"
+        ws.send(JSON.stringify({
+            type: 'create-room',
+            roomId: roomName,
+            clientId
+        }))
+        document.getElementById('createRoomStatus').textContent = `Created room: ${roomName}`
         statusText.textContent = 'Waiting for other players...'
+    } catch (error) {
+        console.error('Error creating room:', error)
+        statusText.textContent = 'Error creating room'
+    }
+}
+
+async function joinRoom() {
+    const roomName = document.getElementById('joinRoomInput').value.trim()
+    if (!roomName) {
+        alert('Please enter a room name')
+        return
+    }
+
+    try {
+        clientId = generateClientId()
+        statusText.textContent = 'Joining room...'
+        ws.send(JSON.stringify({
+            type: 'join-room',
+            roomId: roomName,
+            clientId
+        }))
+
+        document.getElementById('joinRoomStatus').textContent = `Joined room: ${roomName}`
+        
+        statusText.textContent = 'Waiting for the host to start the game...'
     } catch (error) {
         console.error('Error joining room:', error)
         statusText.textContent = 'Error joining room'
     }
+}
+
+async function startGame() {
+    const roomName = document.getElementById('createRoomInput').value.trim()
+    try {
+        statusText.textContent = 'Starting game...'
+        prepareConnections(roomName)
+        closeConnectionPanel()
+        console.log("waiting")
+        setTimeout(() => {
+            console.log("Starting game mode")
+            gameMode()
+        }, 1000)
+    } catch (error) {
+        console.error('Error starting game:', error)
+        statusText.textContent = 'Error starting game'
+    }
+}
+
+async function prepareConnections(roomName) {
+    for (const clientId in webRTCClients) {
+        const client = webRTCClients[clientId];
+        ws.send(JSON.stringify({
+            type: 'join',
+            roomId: roomName,
+            clientId: client.clientId
+        }));
+    }
+}
+
+function generateClientId() {
+    return Math.random().toString(36).substr(2, 9)
 }

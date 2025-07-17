@@ -8,40 +8,53 @@ const clients = new Map()
 function init(port) {
     wss = new WebSocket.Server({ port })
     wss.on('connection', (ws) => {
-        debug('New client connected')
+        console.log('New client connected')
 
         ws.on('message', (message) => {
             try {
                 const data = JSON.parse(message)
                 handleMessage(ws, data)
             } catch (error) {
-                debug('Error parsing message:', error)
+                console.log('Error parsing message:', error)
                 ws.send(JSON.stringify({ type: 'error', message: 'Invalid JSON' }))
             }
         })
         
         ws.on('close', () => {
-            debug('Client disconnected')
+            console.log('Client disconnected')
             handleDisconnect(ws)
         })
         
         ws.on('error', (error) => {
-            debug('WebSocket error:', error)
+            console.log('WebSocket error:', error)
             handleDisconnect(ws)
         })
     })
 
-    debug(`WebSocket server listening on port ${port}`)
+    console.log(`WebSocket server listening on port ${port}`)
 }
 
 function handleMessage(ws, data) {
-    const { type, roomId, targetId, payload } = data
+    const { type, roomId, clientId, targetId, payload } = data
+    console.log("Received message:", data)
     
     switch (type) {
         case 'join':
-            handleJoin(ws, roomId, data.clientId)
+            handleJoin(ws, roomId, clientId)
+            break
+
+        case 'join-room':
+            handleJoinRoom(ws, roomId, clientId)
+            break
+
+        case 'create-room':
+            handleCreateRoom(ws, roomId, clientId)
             break
             
+        case 'prepare-connection':
+            handlePrepareConnection(ws, roomId, clientId)
+            break
+
         case 'offer':
             handleSignaling(ws, 'offer', roomId, targetId, payload)
             break
@@ -59,7 +72,7 @@ function handleMessage(ws, data) {
             break
             
         default:
-            debug('Unknown message type:', type)
+            console.log('Unknown message type:', type)
             ws.send(JSON.stringify({ type: 'error', message: 'Unknown message type' }))
     }
 }
@@ -81,31 +94,81 @@ function handleJoin(ws, roomId, clientId) {
     }
 
     const room = rooms.get(roomId)
+    // FIXME clients per room
     const clientInfo = { roomId, id: clientId, ws }
-
-    room.add(clientInfo)
     clients.set(ws, clientInfo)
-
-    const clientsInfo = Array.from(room).map(client => ({
-        id: client.id,
-        isYou: client.ws === ws
-    }))
 
     ws.send(JSON.stringify({
         type: 'joined',
         roomId,
         clientId,
-        clientsInfo
     }))
 
-    broadcastToRoom(roomId, {
-        type: 'peer-joined',
-        clientId,
-        clientsInfo
-    }, ws)
-    
-    debug(`Client ${clientId} joined room ${roomId}. Room size: ${room.size}`)
+    console.log(`Client ${clientId} joined room ${roomId}`)
 }
+
+function handlePrepareConnection(ws, roomId, clientId) {
+    clients.forEach((client) => {
+        if (client.roomId === roomId && client.id === clientId) {
+            client.ws.send(JSON.stringify({
+                type: 'connection-prepared',
+                roomId,
+                clientId
+            }))
+        }
+    })
+}
+
+function handleCreateRoom(ws, roomId, clientId) {
+    if (!roomId) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Room ID is required' }))
+        return
+    }
+
+    if (rooms.has(roomId)) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Room already exists' }))
+        return
+    }
+
+    rooms.set(roomId, new Set())
+    const clientInfo = { roomId, id: clientId, ws }
+    clients.set(ws, clientInfo)
+
+    ws.send(JSON.stringify({
+        type: 'joined-room',
+        roomId,
+        clientId,
+    }))
+}
+
+function handleJoinRoom(ws, roomId, clientId) {
+    if (!roomId) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Room ID is required' }))
+        return
+    }
+    if (!clientId) {
+        clientId = generateClientId()
+    }
+
+    if (!rooms.has(roomId)) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Room does not exist' }))
+        return
+    }
+
+    const clientInfo = { roomId, id: clientId, ws }
+    clients.set(ws, clientInfo)
+    broadcastMessage({type: 'joined-room', roomId, clientId})
+}
+
+function broadcastMessage(message) {
+    clients.forEach((client) => {
+        if (client.ws.readyState === WebSocket.OPEN) {
+            client.ws.send(JSON.stringify(message))
+        }
+    })
+    console.log(`Broadcasted message: ${JSON.stringify(message)}`)
+}
+
 
 function handleSignaling(ws, type, roomId, targetId, payload) {
     if (!roomId || !targetId) {
@@ -114,6 +177,7 @@ function handleSignaling(ws, type, roomId, targetId, payload) {
     }
     
     const clientInfo = clients.get(ws)
+    console.log("@@@ clients", clients)
     if (!clientInfo || clientInfo.roomId !== roomId) {
         ws.send(JSON.stringify({ type: 'error', message: 'Not in the specified room' }))
         return
@@ -124,8 +188,14 @@ function handleSignaling(ws, type, roomId, targetId, payload) {
         ws.send(JSON.stringify({ type: 'error', message: 'Room not found' }))
         return
     }
-    
-    const targetClient = Array.from(room).find(client => client.id === targetId)
+
+    let targetClient = null
+    clients.forEach((client) => {
+        if (client.roomId === roomId && client.id === targetId) {
+            targetClient = client
+        }
+    })
+
     if (!targetClient) {
         ws.send(JSON.stringify({ type: 'error', message: 'Target client not found' }))
         return
@@ -139,6 +209,7 @@ function handleSignaling(ws, type, roomId, targetId, payload) {
     
     debug(`Forwarded ${type} from ${clientInfo.id} to ${targetId} in room ${roomId}`)
 }
+
 
 function handleLeave(ws) {
     handleDisconnect(ws)
@@ -156,32 +227,14 @@ function handleDisconnect(ws) {
     if (room) {
         room.delete(clientInfo)
         
-        broadcastToRoom(roomId, {
-            type: 'peer-left',
-            clientId: id
-        }, ws)
-        
         if (room.size === 0) {
             rooms.delete(roomId)
-            debug(`Room ${roomId} deleted (empty)`)
+            console.log(`Room ${roomId} deleted (empty)`)
         }
     }
     
     clients.delete(ws)
-    debug(`Client ${id} left room ${roomId}`)
-}
-
-function broadcastToRoom(roomId, message, excludeWs = null) {
-    const room = rooms.get(roomId)
-    if (!room) {
-        return
-    }
-    
-    room.forEach(client => {
-        if (client.ws !== excludeWs && client.ws.readyState === WebSocket.OPEN) {
-            client.ws.send(JSON.stringify(message))
-        }
-    })
+    console.log(`Client ${id} left room ${roomId}`)
 }
 
 function generateClientId() {

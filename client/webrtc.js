@@ -12,12 +12,18 @@ class WebRTCClient {
         this.maxConnectionAttempts = 3
         this.signalingClient = null
         this.currentRoomId = null
-        this.peerId = "default"
-        this.peers = []
+        this.clientId = "default"
+        this.roomId = null
         this.configuration = {}
     }
 
-    async initializeSignaling() {
+    init(isHost, roomId = null, clientId = null) {
+        this.isHost = isHost || false
+        this.clientId = clientId || "default"
+        this.roomId = roomId || "default"
+    }
+
+    async initializeSignaling(host) {
         const protocol = window.location.protocol.includes('https') ? 'wss': 'ws'
         const signalingServerUrl = `${protocol}://${WSHOST}:${WSSPORT}`
         this.signalingClient = new SignalingClient(signalingServerUrl);
@@ -36,26 +42,19 @@ class WebRTCClient {
             }
         };
 
-        this.signalingClient.onPeerJoined = (peerId, peers) => {
-            console.log(`Peer ${peerId} joined`);
-            this.peerId = peerId;
-            this.peers = peers
-            // If we're the host, create an offer
-            if (this.isHost) {
-                this.createOfferForPeer(peerId);
-            }
+        this.signalingClient.onPeerJoined = (clientId) => {
+            console.log(`Peer ${clientId} joined`);
+            this.clientId = clientId;
         };
 
         this.signalingClient.onOffer = async (fromId, offer) => {
             console.log(`Received offer from ${fromId}`);
-            this.peerId = fromId;
             const answer = await this.handleOffer(JSON.stringify(offer));
-            this.signalingClient.sendAnswer(fromId, answer);
+            this.signalingClient.sendAnswer("host", this.roomId, answer);
         };
 
         this.signalingClient.onAnswer = async (fromId, answer) => {
             console.log(`Received answer from ${fromId}`);
-
             await this.handleAnswer(JSON.stringify(answer));
         };
 
@@ -65,35 +64,27 @@ class WebRTCClient {
         };
 
         await this.signalingClient.connect();
-    }
 
-    async getClients() {
-        if (!this.signalingClient) {
-            const id = this.peerId || "default";
-            return { [id]: {} };
-        }
-
-        return this.signalingClient.clients;
-    }
-
-    async joinRoom(roomId) {
-        if (!this.signalingClient) {
-            throw new Error('Signaling client not initialized');
-        }
-
-        this.currentRoomId = roomId;
-        this.isHost = true // FIXME
-        this.signalingClient.joinRoom(roomId);
-
-        if (this.window && this.window.updateConnectionStatus) {
-            this.window.updateConnectionStatus(`Joined room ${roomId}`);
+        if (host && this.clientId != "host") {
+            console.log('@@@@ create offer for peer', {roomID: this.roomId, client: this.clientId})
+            host.createOfferForPeer(this.roomId, this.clientId);
         }
     }
 
-    async createOfferForPeer(peerId) {
+    // async joinRoom(roomId, isHost = false) {
+    //     if (!this.signalingClient) {
+    //         throw new Error('Signaling client not initialized');
+    //     }
+
+    //     this.currentRoomId = roomId;
+    //     this.isHost = isHost
+    //     this.signalingClient.joinRoom(roomId);
+    // }
+
+    async createOfferForPeer(roomId, clientId) {
         try {
             const offer = await this.createOffer();
-            this.signalingClient.sendOffer(peerId, offer);
+            this.signalingClient.sendOffer(clientId, roomId, offer);
             return offer;
         } catch (error) {
             console.error('Error creating offer for peer:', error);
@@ -113,8 +104,7 @@ class WebRTCClient {
         this.connection = new RTCPeerConnection(this.configuration)
         this.setupPeerConnection()
 
-        // FIXME custom channels
-        this.dataChannel = this.connection.createDataChannel('DATA:CHANNEL', { ordered: true })
+        this.dataChannel = this.connection.createDataChannel(`data:channel:${this.roomId}:${this.clientId}`, { ordered: true })
         this.setupDataChannel()
 
         try {
@@ -123,7 +113,6 @@ class WebRTCClient {
                 offerToReceiveVideo: false
             })
             await this.connection.setLocalDescription(offer)
-
             return offer
         } catch (error) {
             console.error('Error creating offer:', error)
@@ -132,6 +121,7 @@ class WebRTCClient {
     }
 
     async handleOffer(offerString) {
+        console.log('@@@ Handling offer:', offerString)
         this.connectionAttempts++
         this.isHost = false
 
@@ -163,6 +153,7 @@ class WebRTCClient {
     }
 
     async handleAnswer(answerString) {
+        console.log('@@@ Handling answer:', answerString)
         try {
             const answer = JSON.parse(answerString)
             await this.connection.setRemoteDescription(answer)
@@ -204,8 +195,8 @@ class WebRTCClient {
             if (event.candidate) {
                 console.log('New ICE candidate:', event.candidate)
                 // Send ICE candidate to the peer through signaling server
-                if (this.signalingClient && this.peerId) {
-                    this.signalingClient.sendIceCandidate(this.peerId, event.candidate);
+                if (this.signalingClient && this.clientId) {
+                    this.signalingClient.sendIceCandidate(this.clientId, this.roomId, event.candidate);
                 }
             } else {
                 console.log('ICE candidate gathering complete')

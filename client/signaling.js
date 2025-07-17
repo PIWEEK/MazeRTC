@@ -67,16 +67,7 @@ class SignalingClient {
             case 'joined':
                 this.roomId = data.roomId;
                 this.clientId = data.clientId;
-                this.clients[this.clientId] = {};
                 console.log(`Joined room ${this.roomId} as ${this.clientId}`);
-                break;
-                
-            case 'peer-joined':
-                console.log(`Peer ${data.clientId} joined the room`);
-                this.clients[data.clientId] = {};
-                if (this.onPeerJoined) {
-                    this.onPeerJoined(data.clientId, data.clients);
-                }
                 break;
                 
             case 'peer-left':
@@ -121,18 +112,18 @@ class SignalingClient {
         }
     }
 
-    joinRoom(roomId, clientId = null) {
-        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-            console.error('WebSocket not connected');
-            return;
-        }
+    // joinRoom(roomId, clientId = null) {
+    //     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+    //         console.error('WebSocket not connected');
+    //         return;
+    //     }
         
-        this.send({
-            type: 'join',
-            roomId,
-            clientId
-        });
-    }
+    //     this.send({
+    //         type: 'join',
+    //         roomId,
+    //         clientId
+    //     });
+    // }
 
     leaveRoom() {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
@@ -144,28 +135,28 @@ class SignalingClient {
         });
     }
 
-    sendOffer(targetId, offer) {
+    sendOffer(targetId, roomId, offer) {
         this.send({
             type: 'offer',
-            roomId: this.roomId,
+            roomId: roomId,
             targetId,
             payload: offer
         });
     }
 
-    sendAnswer(targetId, answer) {
+    sendAnswer(targetId, roomId, answer) {
         this.send({
             type: 'answer',
-            roomId: this.roomId,
+            roomId: roomId,
             targetId,
             payload: answer
         });
     }
 
-    sendIceCandidate(targetId, candidate) {
+    sendIceCandidate(targetId, roomId, candidate) {
         this.send({
             type: 'ice-candidate',
-            roomId: this.roomId,
+            roomId: roomId,
             targetId,
             payload: candidate
         });

@@ -18,16 +18,23 @@
         <button id="joinButton" class="button">Join Game</button>
     </div>
 
-    <!-- WebRTC Connection Panel -->
     <div id="connectionPanel" style="display: none;">
-        <h3>WebRTC Connection</h3>
+        <h3>Game</h3>
 
-        <!-- Room-based connection -->
-        <div id="roomSection">
-            <h4>Join/Create Room</h4>
-            <input type="text" id="roomInput" placeholder="Enter room name..." />
+        <div id="createRoomSection" style="display: none;">
+            <h4>Create Room</h4>
+            <input type="text" id="createRoomInput" placeholder="Enter room name..." />
+            <button id="createRoomButton">Create Room</button>
+            <button id="startGameButton">Start Game</button>
+            <div id="createRoomStatus"></div>
+            <br>
+        </div>
+
+        <div id="joinRoomSection" style="display: none;">
+            <h4>Join Room</h4>
+            <input type="text" id="joinRoomInput" placeholder="Enter room name..." />
             <button id="joinRoomButton">Join Room</button>
-            <div id="roomStatus"></div>
+            <div id="joinRoomStatus"></div>
             <br>
         </div>
 
