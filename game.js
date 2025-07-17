@@ -18,6 +18,7 @@ const SPEED = 250
 const MODE_LOBY = 0
 const MODE_PLAYING = 1
 const MODE_EDITOR = 2
+const MODE_LEVEL_SELECTION = 3
 var mode = MODE_LOBY
 
 const canvas = document.getElementById('gameCanvas')
@@ -26,7 +27,6 @@ const buttonsContainer = document.getElementById('buttons')
 const startButton = document.getElementById('startButton')
 const continueButton = document.getElementById('continueButton')
 const editorButton = document.getElementById('editorButton')
-const endGameButton = document.getElementById('endGame')
 const hostButton = document.getElementById('hostButton')
 const joinButton = document.getElementById('joinButton')
 const connectionPanel = document.getElementById('connectionPanel')
@@ -61,6 +61,10 @@ let selectedCharacter = 0
 let moving = false
 let powers = []
 let movementButtonsConfig
+
+let imgExit
+let imgPopup
+let imgLevel
 
 var board = [
     [7, 1, 1, 1, 1, 5],
@@ -248,6 +252,20 @@ async function preloadDoors() {
     }
 }
 
+async function preloadPopups() {
+    imgPopup = new Image();
+    imgPopup.src = "img/popup.png"
+
+    imgLevel = new Image();
+    imgLevel.src = "img/buttons/level.png"
+
+    imgExit = new Image();
+    imgExit.src = "img/buttons/exit.png"
+
+
+    imgExit
+}
+
 function addCommand(order) {
     commands.push(order)
 }
@@ -286,6 +304,13 @@ function drawButton(button) {
         ctx.beginPath()
         ctx.rect(button.x - 2, button.y - 2, button.width + 4, button.height + 4)
         ctx.stroke()
+    }
+
+    if (button.type == "level") {
+        ctx.font = '48px Impact'
+        ctx.fillStyle = 'white'
+        ctx.textAlign = 'center'
+        ctx.fillText(String(button.value + 1).padStart(2, '0'), button.x + button.width / 2, button.y + button.height * 0.6)
     }
 }
 
@@ -419,6 +444,16 @@ function drawItems(items) {
     items.forEach(item => {
         ctx.drawImage(item.img, item.x * TILE_SIZE + TILE_OFFSET_X, item.y * TILE_SIZE + TILE_OFFSET_Y);
     })
+}
+
+function drawLevelSelection() {
+    ctx.drawImage(imgPopup, 140, 0);
+
+    ctx.font = '80px Impact'
+    ctx.fillStyle = 'white'
+    ctx.textAlign = 'center'
+    ctx.fillText('SELECT LEVEL', canvas.width / 2, 410)
+
 }
 
 
@@ -744,16 +779,19 @@ function checkCharacterInExitKey(character) {
 }
 
 function checkGameEnd() {
-    const charactersInExit = []
+    let end = true
+
     for (let i = 0; i < characters.length; i++) {
         const character = characters[i];
-        if (checkCharacterInExit(character)) {
-            charactersInExit.push(i);
+        if (character.enabled) {
+            end = false
+            break
         }
     }
 
-    if (charactersInExit.length === characters.length) {
+    if (end) {
         console.log("All characters reached their exits! Game over!")
+        levelSelectionMode()
     }
 }
 
@@ -780,43 +818,61 @@ function updateCharacter(character, position, enabled, currentAnim, speed) {
 }
 
 function gameLoop(timestamp) {
-    if (gameEnded) {
-        return // Stop the game loop if game has ended
-    }
-
-    if (lastTime == 0) {
-        lastTime = timestamp
-        requestAnimationFrame(gameLoop)
-    } else {
-        const delta = (timestamp - lastTime) / 1000
-
-        lastTime = timestamp
-
-        animTime += delta * 10
-        currentFrame = Math.floor(animTime);
-
-        ctx.fillStyle = 'black'
-        if (mode == MODE_EDITOR) {
-            ctx.fillStyle = 'white'
-        }
+    if (mode == MODE_EDITOR) {
+        ctx.fillStyle = 'white'
+        ctx.strokeStyle = 'black'
         ctx.strokeStyle = 'black'
         ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-        ctx.fillStyle = 'black'
-
-        drawBoard(delta)
+        drawBoard()
         drawExits()
         drawDoors()
         drawItems(plates)
         drawItems(holes)
         drawItems(teleports)
         drawItems(traps)
-        drawCharacters(delta)
+        drawCharacters()
         drawButtons()
+    } else if (mode == MODE_LEVEL_SELECTION) {
+        ctx.fillStyle = 'black'
+        ctx.strokeStyle = 'black'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        drawBoard()
+        drawLevelSelection()
+        drawButtons()
+    } else if (mode == MODE_PLAYING) {
+        if (gameEnded) {
+            return // Stop the game loop if game has ended
+        }
 
+        if (lastTime == 0) {
+            lastTime = timestamp
+            requestAnimationFrame(gameLoop)
+        } else {
+            const delta = (timestamp - lastTime) / 1000
 
-        if (!moving) {
-            move()
+            lastTime = timestamp
+
+            animTime += delta * 10
+            currentFrame = Math.floor(animTime);
+
+            ctx.fillStyle = 'black'
+            ctx.strokeStyle = 'black'
+            ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+            drawBoard(delta)
+            drawExits()
+            drawDoors()
+            drawItems(plates)
+            drawItems(holes)
+            drawItems(teleports)
+            drawItems(traps)
+            drawCharacters(delta)
+            drawButtons()
+
+            if (!moving) {
+                move()
+            }
         }
 
         requestAnimationFrame(gameLoop)
@@ -874,7 +930,6 @@ function onCoordsClick(coordX, coordY) {
 function displayGameArea() {
     //enterFullscreenAndLockOrientation()
     buttonsContainer.style.display = 'none'
-    endGameButton.style.display = 'block'
     canvas.style.display = 'block'
     gameEnded = false
     lastTime = 0
@@ -889,7 +944,6 @@ function endGame() {
     saveGameState()
     gameEnded = true
     buttonsContainer.style.display = 'flex'
-    endGameButton.style.display = 'none'
     canvas.style.display = 'none'
 
     characters = []
@@ -937,15 +991,45 @@ function initializeBoard(onClick) {
     }
 }
 
+function levelSelectionMode() {
+    mode = MODE_LEVEL_SELECTION
+
+    buttons = []
+
+    let onClick = (button) => {
+        currentLevel = button.value
+        gameMode()
+    }
+
+
+    let x = 180
+    let y = 435
+
+    for (let i = 0; i < LEVELS.length; i++) {
+        addButton(imgLevel, null, x, y, TILE_SIZE, TILE_SIZE, i, "level", onClick)
+        x += 128
+        if (x > 1000) {
+            x = 180
+            y += 128
+        }
+
+    }
+
+
+
+
+
+
+
+
+    displayGameArea()
+}
+
 async function gameMode() {
     mode = MODE_PLAYING
+    console.log(currentLevel)
     loadLevel(LEVELS[currentLevel]);
 
-    // FIXME
-    characters[0].enabled = true;
-    characters[1].enabled = true;
-
-    console.log(webrtcClient)
 
     const clients = await webrtcClient.getClients()
     const allClientIds = Object.keys(clients)
@@ -1067,8 +1151,8 @@ function setMovementButtons(movements) {
     addButton(
         powers[0].default,
         powers[0].imgSelected,
-        TILE_SIZE * 9,
-        0,
+        TILE_SIZE * 9 - 25,
+        25,
         TILE_SIZE,
         TILE_SIZE,
         4,
@@ -1087,8 +1171,8 @@ function setMovementButtons(movements) {
     addButton(
         powers[1].default,
         powers[1].imgSelected,
-        TILE_SIZE * 9,
-        0,
+        TILE_SIZE * 9 - 25,
+        25,
         TILE_SIZE,
         TILE_SIZE,
         5,
@@ -1109,13 +1193,27 @@ function setMovementButtons(movements) {
     addButton(
         powers[2].default,
         powers[2].imgSelected,
-        TILE_SIZE * 9,
-        0,
+        TILE_SIZE * 9 - 25,
+        25,
         TILE_SIZE,
         TILE_SIZE,
         5,
         "teleport",
         onTeleport
+    );
+
+
+    //Exit
+    addButton(
+        imgExit,
+        null,
+        25,
+        25,
+        TILE_SIZE,
+        TILE_SIZE,
+        5,
+        "exit",
+        endGame
     );
 
 
@@ -1432,6 +1530,7 @@ function initialize() {
     preloadControls();
     preloadPowers();
     preloadDoors();
+    preloadPopups();
 
     resizeCanvas();
 
@@ -1440,7 +1539,7 @@ function initialize() {
         continueButton.style.display = 'block'
     }
 
-    startButton.addEventListener('click', gameMode)
+    startButton.addEventListener('click', levelSelectionMode)
     editorButton.addEventListener('click', editMode)
     hostButton.addEventListener('click', hostGame)
     joinButton.addEventListener('click', joinGame)
@@ -1448,7 +1547,6 @@ function initialize() {
 
     window.addEventListener('resize', resizeCanvas)
     canvas.addEventListener('click', onCanvasClick)
-    endGameButton.addEventListener('click', endGame)
     window.addEventListener('keydown', onKeyDown)
     window.updateConnectionStatus = updateConnectionStatus
 }
