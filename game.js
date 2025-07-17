@@ -14,7 +14,7 @@ const TELEPORT = 12
 
 const SPEED = 250
 
-let currentLevel = 10
+let currentLevel = 1
 
 
 const MODE_LOBY = 0
@@ -149,6 +149,7 @@ async function preloadCharacter(num) {
 }
 
 async function preloadCharacters() {
+    characters = []
     for (var i = 0; i < MAX_CHARACTERS; i++) {
         var character = await preloadCharacter(i)
         characters.push(character)
@@ -403,7 +404,7 @@ function drawCharacter(character, delta) {
         }
 
 
-        const animationIndex = currentFrame % character.anims[character.currentAnim].length
+        const animationIndex = (currentFrame % character.anims[character.currentAnim].length) || 0
 
         ctx.save()
         if (character.num === selectedCharacter) {
@@ -413,6 +414,9 @@ function drawCharacter(character, delta) {
         if (character.currentAnim === "exit") {
             ctx.globalAlpha = 0.5;
         }
+
+        console.log(animationIndex)
+        console.log(character)
         ctx.drawImage(character.anims[character.currentAnim][animationIndex], character.drawX, character.drawY);
         ctx.restore();
     }
@@ -978,7 +982,6 @@ function endGame() {
     buttonsContainer.style.display = 'flex'
     canvas.style.display = 'none'
 
-    characters = []
     buttons = []
 
     // Reset animation timing
@@ -1052,7 +1055,10 @@ function levelSelectionMode() {
 
 async function gameMode() {
     mode = MODE_PLAYING
-    console.log(currentLevel)
+
+    buttons = []
+
+
     loadLevel(LEVELS[currentLevel]);
 
     // FIXME
@@ -1150,7 +1156,6 @@ function setMovementButtons(movements) {
         }, 250)
     }
 
-    buttons = []
 
     myButtons.forEach(buttonIndex => {
         const config = movementButtonsConfig[buttonIndex];
@@ -1502,6 +1507,7 @@ function loadLevel(level) {
     }
 
     for (i = 0; i < characters.length; i++) {
+        characters[i].currentAnim = "idle"
         characters[i].enabled = level.characters[i].enabled
         setCharacterPos(characters[i], level.characters[i].x, level.characters[i].y)
 
