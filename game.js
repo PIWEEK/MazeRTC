@@ -961,7 +961,10 @@ function onCoordsClick(coordX, coordY) {
 }
 
 function displayGameArea() {
-    //enterFullscreenAndLockOrientation()
+    const isPhone = /Mobi|Android|iPhone|iPad|iPod/.test(navigator.userAgent)
+    if (isPhone) {
+        enterFullscreenAndLockOrientation()
+    }
     buttonsContainer.style.display = 'none'
     canvas.style.display = 'block'
     gameEnded = false
