@@ -1029,13 +1029,6 @@ function levelSelectionMode() {
 
     }
 
-
-
-
-
-
-
-
     displayGameArea()
 }
 
@@ -1579,12 +1572,7 @@ function updateConnectionStatus(status) {
             closeConnectionPanel()
 
             if (webrtcClient.isHost) {
-                gameMode()
-                const gameState = getGameState()
-                webrtcClient.sendMessage({
-                    type: 'gameStateUpdate',
-                    gameState: gameState
-                });
+                levelSelectionMode()
             }
         }, 2000)
     }
@@ -1711,6 +1699,7 @@ function setCharacterPos(character, x, y) {
 }
 
 function setGameState(gameState) {
+    mode = MODE_PLAYING
     board = gameState.board || board
 
     traps = []
