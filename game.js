@@ -55,7 +55,7 @@ let characters = []
 let movements = {}
 let selectedButton = null
 let lastId = -1
-let currentLevel = 7
+let currentLevel = 0
 let commands = []
 let selectedCharacter = 0
 let moving = false
@@ -234,6 +234,10 @@ async function preloadDoors() {
             await preloadDoor("blue_right"),
             await preloadDoor("blue_down"),
             await preloadDoor("blue_left"),
+            await preloadDoor("orange_up"),
+            await preloadDoor("orange_right"),
+            await preloadDoor("orange_down"),
+            await preloadDoor("orange_left"),
         ],
         open: [
             await preloadDoor("red_up_open"),
@@ -244,10 +248,15 @@ async function preloadDoors() {
             await preloadDoor("blue_right_open"),
             await preloadDoor("blue_down_open"),
             await preloadDoor("blue_left_open"),
+            await preloadDoor("orange_up_open"),
+            await preloadDoor("orange_right_open"),
+            await preloadDoor("orange_down_open"),
+            await preloadDoor("orange_left_open"),
         ],
         plates: [
             await preloadDoor("red_key"),
-            await preloadDoor("blue_key")
+            await preloadDoor("blue_key"),
+            await preloadDoor("orange_key")
         ]
     }
 }
@@ -747,6 +756,7 @@ function endMove(chNum, targetTile) {
     if (checkCharacterInExit(character)) {
         character.currentAnim = "exit"
         character.enabled = false
+        selectNextCharacter()
     }
 
     checkOpenExits()
@@ -758,7 +768,8 @@ function checkOpenExits() {
     let open = true
     for (let i = 0; i < characters.length; i++) {
         const character = characters[i];
-        if (character.exitOpen || character.x != character.exitKeyX || character.y != character.exitKeyY) {
+        if (character.enabled &&
+            (character.exitOpen || character.x != character.exitKeyX || character.y != character.exitKeyY)) {
             open = false
             break
         }
@@ -833,6 +844,8 @@ function gameLoop(timestamp) {
         drawItems(traps)
         drawCharacters()
         drawButtons()
+
+        requestAnimationFrame(gameLoop)
     } else if (mode == MODE_LEVEL_SELECTION) {
         ctx.fillStyle = 'black'
         ctx.strokeStyle = 'black'
@@ -840,6 +853,7 @@ function gameLoop(timestamp) {
         drawBoard()
         drawLevelSelection()
         drawButtons()
+        requestAnimationFrame(gameLoop)
     } else if (mode == MODE_PLAYING) {
         if (gameEnded) {
             return // Stop the game loop if game has ended
@@ -1348,7 +1362,7 @@ function editMode() {
     }
 
     let x = 15
-    let y = 128
+    let y = 75
     for (i = 0; i < 17; i++) {
         addButton(tiles[i], null, x, y, 50, 50, i, "editTile", onClick)
         x += 60
@@ -1490,6 +1504,10 @@ function loadLevel(level) {
             characters[i].exitOpen = false
         }
 
+        if (characters[i].enabled) {
+            selectedCharacter = i
+        }
+
     }
 
 
@@ -1583,6 +1601,16 @@ function closeConnectionPanel() {
     buttonsContainer.style.display = 'none'
 }
 
+function selectNextCharacter() {
+    for (i = 1; i < 4; i++) {
+        let num = (selectedCharacter + i) % MAX_CHARACTERS
+        if (characters[num].enabled) {
+            selectCharacter(num)
+            break
+        }
+    }
+}
+
 function onKeyDown(e) {
     if (mode == MODE_PLAYING) {
         if (e.key !== 'F12') {
@@ -1605,7 +1633,7 @@ function onKeyDown(e) {
                 onCoordsClick(movementButtonsConfig[3].x, movementButtonsConfig[3].y)
                 break;
             case "p":
-                onCoordsClick(TILE_SIZE * 9, 0)
+                onCoordsClick(TILE_SIZE * 9, 26)
                 break;
             case "1":
                 if (characters[0].enabled) { selectCharacter(0) }
@@ -1620,13 +1648,7 @@ function onKeyDown(e) {
                 if (characters[3].enabled) { selectCharacter(3) }
                 break;
             case "tab":
-                for (i = 1; i < 4; i++) {
-                    let num = (selectedCharacter + i) % MAX_CHARACTERS
-                    if (characters[num].enabled) {
-                        selectCharacter(num)
-                        break
-                    }
-                }
+                selectNextCharacter()
         }
     }
 }
