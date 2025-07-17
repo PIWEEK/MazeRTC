@@ -14,7 +14,7 @@ const TELEPORT = 12
 
 const SPEED = 250
 
-let currentLevel = 1
+let currentLevel = 0
 
 
 const MODE_LOBY = 0
@@ -241,6 +241,10 @@ async function preloadDoors() {
             await preloadDoor("orange_right"),
             await preloadDoor("orange_down"),
             await preloadDoor("orange_left"),
+            await preloadDoor("pink_up"),
+            await preloadDoor("pink_right"),
+            await preloadDoor("pink_down"),
+            await preloadDoor("pink_left"),
         ],
         open: [
             await preloadDoor("red_up_open"),
@@ -255,11 +259,16 @@ async function preloadDoors() {
             await preloadDoor("orange_right_open"),
             await preloadDoor("orange_down_open"),
             await preloadDoor("orange_left_open"),
+            await preloadDoor("pink_up_open"),
+            await preloadDoor("pink_right_open"),
+            await preloadDoor("pink_down_open"),
+            await preloadDoor("pink_left_open"),
         ],
         plates: [
             await preloadDoor("red_key"),
             await preloadDoor("blue_key"),
-            await preloadDoor("orange_key")
+            await preloadDoor("orange_key"),
+            await preloadDoor("pink_key")
         ]
     }
 }
@@ -1039,14 +1048,14 @@ function levelSelectionMode() {
     }
 
 
-    let x = 180
+    let x = 225
     let y = 435
 
     for (let i = 0; i < LEVELS.length; i++) {
-        addButton(imgLevel, null, x, y, TILE_SIZE, TILE_SIZE, i, "level", onClick)
-        x += 128
+        addButton(imgLevel, null, x, y, TILE_SIZE * 0.9, TILE_SIZE * 0.9, i, "level", onClick)
+        x += 180
         if (x > 1000) {
-            x = 180
+            x = 225
             y += 128
         }
 
@@ -1383,7 +1392,7 @@ function editMode() {
     }
 
     let x = 15
-    let y = 75
+    let y = 50
     for (i = 0; i < 17; i++) {
         addButton(tiles[i], null, x, y, 50, 50, i, "editTile", onClick)
         x += 60
@@ -1428,7 +1437,6 @@ function editMode() {
     }
 
     x = 15
-    y += 60
 
     for (i = 0; i < holesImgs.length; i++) {
         addButton(holesImgs[i], null, x, y, 50, 50, i, "editHole", onClick)
