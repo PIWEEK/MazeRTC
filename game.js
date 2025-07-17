@@ -14,6 +14,8 @@ const TELEPORT = 12
 
 const SPEED = 250
 
+let currentLevel = 10
+
 
 const MODE_LOBY = 0
 const MODE_PLAYING = 1
@@ -56,7 +58,6 @@ let characters = []
 let movements = {}
 let selectedButton = null
 let lastId = -1
-let currentLevel = 0
 let commands = []
 let selectedCharacter = 0
 let moving = false
@@ -930,8 +931,10 @@ function clearPowers() {
 }
 
 function selectCharacter(num) {
-    clearPowers();
-    selectedCharacter = num;
+    if (characters[num].enabled) {
+        clearPowers();
+        selectedCharacter = num;
+    }
 }
 
 
@@ -939,7 +942,7 @@ function onCoordsClick(coordX, coordY) {
     const [x, y] = coordsToTile(coordX, coordY);
     for (let i = 0; i < characters.length; i++) {
         const character = characters[i];
-        if ((character.x === x && character.y === y) && (selectedCharacter != i)) {
+        if ((character.x === x && character.y === y) && (selectedCharacter != i) && character.enabled) {
             if (powers[2].selected) {
                 addCommand({ character: selectedCharacter, targetCharacter: i, value: TELEPORT })
             } else {
@@ -1631,7 +1634,7 @@ function selectNextCharacter() {
 
 function onKeyDown(e) {
     if (mode == MODE_PLAYING) {
-        if (e.key !== 'F12') {
+        if (e.key !== 'F12' && e.key != 'F5') {
             e.preventDefault()
         }
         switch (e.key.toLowerCase()) {
