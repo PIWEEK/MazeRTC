@@ -28,7 +28,7 @@ const ctx = canvas.getContext('2d')
 const buttonsContainer = document.getElementById('buttons')
 const startButton = document.getElementById('startButton')
 const startGameButton = document.getElementById('startGameButton')
-const continueButton = document.getElementById('continueButton')
+const closeConnectionPanelButton = document.getElementById('closeConnectionPanelButton')
 const editorButton = document.getElementById('editorButton')
 const hostButton = document.getElementById('hostButton')
 const joinButton = document.getElementById('joinButton')
@@ -1015,16 +1015,14 @@ function endGame() {
 
 function hostGame() {
     console.log("Hosting game...")
-    connectionPanel.style.display = 'block'
-    document.getElementById('roomSection').style.display = 'block'
+    connectionPanel.style.display = 'flex'
     buttonsContainer.style.display = 'none'
     statusText.textContent = 'Enter a room name to create/join a room'
 }
 
 function joinGame() {
     console.log("Joining game...")
-    connectionPanel.style.display = 'block'
-    document.getElementById('roomSection').style.display = 'block'
+    connectionPanel.style.display = 'flex'
     buttonsContainer.style.display = 'none'
     statusText.textContent = 'Enter a room name to join an existing room'
 }
@@ -1099,13 +1097,13 @@ async function gameMode() {
             { clientId: allClientIds[1], buttons: shuffledButtons.slice(2, 4) }
         ];
     } else if (totalPeers === 3) {
-        // Three players: randomly assign 2-1-1 distribution
+        // Three players: each gets 1 independent button, 4th is shared
         const shuffledButtons = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
         const shuffledClients = [...allClientIds].sort(() => Math.random() - 0.5);
         assignments = [
-            { clientId: shuffledClients[0], buttons: shuffledButtons.slice(0, 2) },
-            { clientId: shuffledClients[1], buttons: shuffledButtons.slice(2, 3) },
-            { clientId: shuffledClients[2], buttons: shuffledButtons.slice(3, 4) }
+            { clientId: shuffledClients[0], buttons: [shuffledButtons[0], shuffledButtons[3]] },
+            { clientId: shuffledClients[1], buttons: [shuffledButtons[1], shuffledButtons[3]] },
+            { clientId: shuffledClients[2], buttons: [shuffledButtons[2], shuffledButtons[3]] }
         ];
     } else if (totalPeers === 4) {
         // Four or more players: each gets 1 button randomly
@@ -1586,7 +1584,7 @@ function initialize() {
 
     // Check if there's a saved game and show continue button
     if (localStorage.getItem('mazeRTC_gameState')) {
-        continueButton.style.display = 'block'
+        // continueButton.style.display = 'flex'
     }
 
     startButton.addEventListener('click', levelSelectionMode)
@@ -1595,6 +1593,7 @@ function initialize() {
     joinButton.addEventListener('click', joinGame)
     joinRoomButton.addEventListener('click', joinRoom)
     startGameButton.addEventListener('click', startGame)
+    closeConnectionPanelButton.addEventListener('click', closeConnectionPanel)
 
     window.addEventListener('resize', resizeCanvas)
     canvas.addEventListener('click', onCanvasClick)
@@ -1637,7 +1636,7 @@ function updateGame(gameState) {
 
 function closeConnectionPanel() {
     connectionPanel.style.display = 'none'
-    buttonsContainer.style.display = 'none'
+    buttonsContainer.style.display = 'flex'
 }
 
 function selectNextCharacter() {

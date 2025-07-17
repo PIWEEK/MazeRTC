@@ -20,7 +20,7 @@
         <img class="logo" src="img/logo.png" />
 
         <button id="startButton" class="button">Start Game</button>
-        <button id="continueButton" class="button" style="display: none;">Continue Game</button>
+        <!-- <button id="continueButton" class="button" style="display: none;">Continue Game</button> -->
         <button id="editorButton" class="button">Map editor</button>
         <button id="hostButton" class="button">Host Game</button>
         <button id="joinButton" class="button">Join Game</button>
@@ -28,23 +28,17 @@
 
     <!-- WebRTC Connection Panel -->
     <div id="connectionPanel" style="display: none;">
-        <h3>WebRTC Connection</h3>
+        <img class="logo" src="img/logo.png" />
 
-        <!-- Room-based connection -->
-        <div id="roomSection">
-            <h4>Join/Create Room</h4>
-            <input type="text" id="roomInput" placeholder="Enter room name..." />
-            <button id="joinRoomButton">Join Room</button>
-            <button id="startGameButton">Start Game</button>
-            <div id="roomStatus"></div>
-            <br>
-        </div>
+        <input type="text" id="roomInput" placeholder="Enter room name..." />
+        <div id="roomStatus"></div>
 
         <div id="connectionStatus">
             <strong>Status:</strong> <span id="statusText">Not connected</span>
         </div>
-        <br>
-        <button id="closeConnectionPanel">Close</button>
+        <button class="button" id="joinRoomButton">Join Room</button>
+        <button class="button" id="startGameButton">Start Game</button>
+        <button class="button" id="closeConnectionPanelButton">Close</button>
     </div>
 
     <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
