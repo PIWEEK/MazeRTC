@@ -70,7 +70,7 @@ class SignalingClient {
                 this.clients[this.clientId] = {};
                 console.log(`Joined room ${this.roomId} as ${this.clientId}`);
                 break;
-                
+
             case 'peer-joined':
                 console.log(`Peer ${data.clientId} joined the room`);
                 this.clients[data.clientId] = {};

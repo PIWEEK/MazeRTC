@@ -25,6 +25,7 @@ const canvas = document.getElementById('gameCanvas')
 const ctx = canvas.getContext('2d')
 const buttonsContainer = document.getElementById('buttons')
 const startButton = document.getElementById('startButton')
+const startGameButton = document.getElementById('startGameButton')
 const continueButton = document.getElementById('continueButton')
 const editorButton = document.getElementById('editorButton')
 const hostButton = document.getElementById('hostButton')
@@ -656,31 +657,34 @@ function teleport(command) {
     let targetCharacter = characters[command.targetCharacter]
     let teleportPlatform = findItem(teleports, character.x, character.y)
     if (teleportPlatform) {
-        // Instant move
         setCharacterPos(character, targetCharacter.x, targetCharacter.y)
         setCharacterPos(targetCharacter, teleportPlatform.x, teleportPlatform.y)
         endMove(command.character, character)
 
         webrtcClient.sendMessage({
-            type: "updateCharacter",
-            character: character.num,
-            position: [character.x, character.y],
-            enabled: character.enabled,
-            currentAnim: character.currentAnim,
-            speed: 10000
+            type: "runCommand",
+            command: "updateCharacter",
+            args: {
+                character: character.num,
+                position: [character.x, character.y],
+                enabled: character.enabled,
+                currentAnim: character.currentAnim,
+                speed: 10000
+            }
         })
 
         webrtcClient.sendMessage({
-            type: "updateCharacter",
-            character: targetCharacter.num,
-            position: [targetCharacter.x, targetCharacter.y],
-            enabled: targetCharacter.enabled,
-            currentAnim: targetCharacter.currentAnim,
-            speed: 10000
+            type: "runCommand",
+            command: "updateCharacter",
+            args: {
+                character: targetCharacter.num,
+                position: [targetCharacter.x, targetCharacter.y],
+                enabled: targetCharacter.enabled,
+                currentAnim: targetCharacter.currentAnim,
+                speed: 10000
+            }
         })
-
     }
-
 }
 
 function move() {
@@ -722,15 +726,16 @@ function move() {
 
                     }
 
-
-
                     webrtcClient.sendMessage({
-                        type: "updateCharacter",
-                        character: character.num,
-                        position: [targetTile.x, targetTile.y],
-                        enabled: character.enabled,
-                        currentAnim: character.currentAnim,
-                        speed: character.speed
+                        type: "runCommand",
+                        command: "updateCharacter",
+                        args: {
+                            character: character.num,
+                            position: [targetTile.x, targetTile.y],
+                            enabled: character.enabled,
+                            currentAnim: character.currentAnim,
+                            speed: character.speed
+                        }
                     })
 
                     setTimeout(() => {
@@ -806,7 +811,7 @@ function checkGameEnd() {
     }
 }
 
-function updateCharacter(character, position, enabled, currentAnim, speed) {
+function updateCharacter({character, position, enabled, currentAnim, speed}) {
     console.log("Updating character", position)
     const [x, y] = position
     characters[character].drawTargetX = x * TILE_SIZE + TILE_OFFSET_X
@@ -825,7 +830,17 @@ function updateCharacter(character, position, enabled, currentAnim, speed) {
     setTimeout(() => {
         endMove(character, { x: x, y: y })
     }, 500)
+}
 
+function runCommand(command, args) {
+    this[command](args)
+    if (webrtcClient.isHost) {
+        webrtcClient.sendMessage({
+            type: "runCommand",
+            command: command,
+            args: args
+        })
+    }
 }
 
 function gameLoop(timestamp) {
@@ -1037,6 +1052,9 @@ async function gameMode() {
     console.log(currentLevel)
     loadLevel(LEVELS[currentLevel]);
 
+    // FIXME
+    characters[0].enabled = true;
+    characters[1].enabled = true;
 
     const clients = await webrtcClient.getClients()
     const allClientIds = Object.keys(clients)
@@ -1555,6 +1573,7 @@ function initialize() {
     hostButton.addEventListener('click', hostGame)
     joinButton.addEventListener('click', joinGame)
     joinRoomButton.addEventListener('click', joinRoom)
+    startGameButton.addEventListener('click', startGame)
 
     window.addEventListener('resize', resizeCanvas)
     canvas.addEventListener('click', onCanvasClick)
@@ -1568,19 +1587,30 @@ function updateConnectionStatus(status) {
     statusText.textContent = status
 
     if (status === 'Connected - Ready to play!') {
-        setTimeout(() => {
-            closeConnectionPanel()
+        if (webrtcClient.isHost) {
+            console.log("new pair connected")
+            // levelSelectionMode()
 
-            if (webrtcClient.isHost) {
-                levelSelectionMode()
-            }
-        }, 2000)
+        }
     }
+}
+
+function startGame() {
+    // gameMode()
+    levelSelectionMode()
+    const gameState = getGameState()
+    webrtcClient.sendMessage({
+        type: 'gameStateUpdate',
+        gameState: gameState
+    });
+    closeConnectionPanel()
+    displayGameArea()
 }
 
 function updateGame(gameState) {
     setGameState(gameState)
     setMovementButtons(gameState.movements)
+    closeConnectionPanel()
     displayGameArea()
 }
 

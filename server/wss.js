@@ -8,30 +8,30 @@ const clients = new Map()
 function init(port) {
     wss = new WebSocket.Server({ port })
     wss.on('connection', (ws) => {
-        debug('New client connected')
+        console.log('New client connected')
 
         ws.on('message', (message) => {
             try {
                 const data = JSON.parse(message)
                 handleMessage(ws, data)
             } catch (error) {
-                debug('Error parsing message:', error)
+                console.log('Error parsing message:', error)
                 ws.send(JSON.stringify({ type: 'error', message: 'Invalid JSON' }))
             }
         })
         
         ws.on('close', () => {
-            debug('Client disconnected')
+            console.log('Client disconnected')
             handleDisconnect(ws)
         })
         
         ws.on('error', (error) => {
-            debug('WebSocket error:', error)
+            console.log('WebSocket error:', error)
             handleDisconnect(ws)
         })
     })
 
-    debug(`WebSocket server listening on port ${port}`)
+    console.log(`WebSocket server listening on port ${port}`)
 }
 
 function handleMessage(ws, data) {
@@ -59,7 +59,7 @@ function handleMessage(ws, data) {
             break
             
         default:
-            debug('Unknown message type:', type)
+            console.log('Unknown message type:', type)
             ws.send(JSON.stringify({ type: 'error', message: 'Unknown message type' }))
     }
 }
@@ -104,7 +104,7 @@ function handleJoin(ws, roomId, clientId) {
         clientsInfo
     }, ws)
     
-    debug(`Client ${clientId} joined room ${roomId}. Room size: ${room.size}`)
+    console.log(`Client ${clientId} joined room ${roomId}. Room size: ${room.size}`)
 }
 
 function handleSignaling(ws, type, roomId, targetId, payload) {
@@ -137,7 +137,7 @@ function handleSignaling(ws, type, roomId, targetId, payload) {
         payload
     }))
     
-    debug(`Forwarded ${type} from ${clientInfo.id} to ${targetId} in room ${roomId}`)
+    console.log(`Forwarded ${type} from ${clientInfo.id} to ${targetId} in room ${roomId}`)
 }
 
 function handleLeave(ws) {
@@ -163,12 +163,12 @@ function handleDisconnect(ws) {
         
         if (room.size === 0) {
             rooms.delete(roomId)
-            debug(`Room ${roomId} deleted (empty)`)
+            console.log(`Room ${roomId} deleted (empty)`)
         }
     }
     
     clients.delete(ws)
-    debug(`Client ${id} left room ${roomId}`)
+    console.log(`Client ${id} left room ${roomId}`)
 }
 
 function broadcastToRoom(roomId, message, excludeWs = null) {

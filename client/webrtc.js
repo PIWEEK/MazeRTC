@@ -5,6 +5,8 @@ class WebRTCClient {
     constructor(window) {
         this.window = window
         this.connection = null
+        this.connections = {}
+        this.dataChannels = {}
         this.dataChannel = null
         this.isHost = false
         this.iceQueue = []
@@ -49,19 +51,20 @@ class WebRTCClient {
         this.signalingClient.onOffer = async (fromId, offer) => {
             console.log(`Received offer from ${fromId}`);
             this.peerId = fromId;
-            const answer = await this.handleOffer(JSON.stringify(offer));
+            const answer = await this.handleOffer(JSON.stringify(offer), fromId);
             this.signalingClient.sendAnswer(fromId, answer);
         };
 
         this.signalingClient.onAnswer = async (fromId, answer) => {
             console.log(`Received answer from ${fromId}`);
-
-            await this.handleAnswer(JSON.stringify(answer));
+            const connection = this.connections[fromId] || this.connection;
+            await this.handleAnswer(JSON.stringify(answer), connection);
         };
 
         this.signalingClient.onIceCandidate = async (fromId, candidate) => {
             console.log(`Received ICE candidate from ${fromId}`);
-            await this.addICECandidate(JSON.stringify(candidate));
+            const connection = this.connections[fromId] || this.connection;
+            await this.addICECandidate(JSON.stringify(candidate), connection);
         };
 
         await this.signalingClient.connect();
@@ -92,7 +95,7 @@ class WebRTCClient {
 
     async createOfferForPeer(peerId) {
         try {
-            const offer = await this.createOffer();
+            const offer = await this.createOffer(peerId);
             this.signalingClient.sendOffer(peerId, offer);
             return offer;
         } catch (error) {
@@ -101,28 +104,30 @@ class WebRTCClient {
         }
     }
 
-    async createOffer() {
+    async createOffer(peerId) {
         this.connectionAttempts++
         this.isHost = true
 
-        // Clean up any existing connection
-        if (this.connection) {
-            this.connection.close()
-        }
+        // // Clean up any existing connection
+        // if (this.connection) {
+        //     this.connection.close()
+        // }
 
-        this.connection = new RTCPeerConnection(this.configuration)
-        this.setupPeerConnection()
+        const connection = new RTCPeerConnection(this.configuration)
+        this.connections[peerId] = connection
+        
+        this.setupPeerConnection(connection)
 
         // FIXME custom channels
-        this.dataChannel = this.connection.createDataChannel('DATA:CHANNEL', { ordered: true })
-        this.setupDataChannel()
+        this.dataChannels[peerId] = this.connections[peerId].createDataChannel('DATA:CHANNEL', { ordered: true })
+        this.setupDataChannel(this.dataChannels[peerId])
 
         try {
-            const offer = await this.connection.createOffer({
+            const offer = await this.connections[peerId].createOffer({
                 offerToReceiveAudio: false,
                 offerToReceiveVideo: false
             })
-            await this.connection.setLocalDescription(offer)
+            await this.connections[peerId].setLocalDescription(offer)
 
             return offer
         } catch (error) {
@@ -131,29 +136,32 @@ class WebRTCClient {
         }
     }
 
-    async handleOffer(offerString) {
+    async handleOffer(offerString, peerId) {
         this.connectionAttempts++
         this.isHost = false
 
         // Clean up any existing connection
-        if (this.connection) {
-            this.connection.close()
-        }
+        // if (this.connection) {
+        //     this.connection.close()
+        // }
 
-        this.connection = new RTCPeerConnection(this.configuration)
-        this.setupPeerConnection()
+        const connection = new RTCPeerConnection(this.configuration)
+        this.connections[peerId] = connection
+        this.setupPeerConnection(connection)
+        
 
-        this.connection.ondatachannel = (event) => {
-            this.dataChannel = event.channel
-            this.setupDataChannel()
+        connection.ondatachannel = (event) => {
+            const dataChannel = event.channel
+            this.dataChannels[peerId] = dataChannel
+            this.setupDataChannel(dataChannel)
         }
 
         try {
             const offer = JSON.parse(offerString)
-            await this.connection.setRemoteDescription(offer)
+            await connection.setRemoteDescription(offer)
 
-            const answer = await this.connection.createAnswer()
-            await this.connection.setLocalDescription(answer)
+            const answer = await connection.createAnswer()
+            await connection.setLocalDescription(answer)
 
             return answer
         } catch (error) {
@@ -162,13 +170,13 @@ class WebRTCClient {
         }
     }
 
-    async handleAnswer(answerString) {
+    async handleAnswer(answerString, connection) {
         try {
             const answer = JSON.parse(answerString)
-            await this.connection.setRemoteDescription(answer)
+            await connection.setRemoteDescription(answer)
 
             for (const candidate of this.iceQueue) {
-                await this.connection.addIceCandidate(candidate)
+                await connection.addIceCandidate(candidate)
             }
             this.iceQueue = []
         } catch (error) {
@@ -199,8 +207,8 @@ class WebRTCClient {
         }
     }
 
-    setupPeerConnection() {
-        this.connection.onicecandidate = (event) => {
+    setupPeerConnection(connection) {
+        connection.onicecandidate = (event) => {
             if (event.candidate) {
                 console.log('New ICE candidate:', event.candidate)
                 // Send ICE candidate to the peer through signaling server
@@ -212,9 +220,9 @@ class WebRTCClient {
             }
         }
 
-        this.connection.onconnectionstatechange = () => {
-            console.log('Connection state:', this.connection.connectionState)
-            const status = this.connection.connectionState
+        connection.onconnectionstatechange = () => {
+            console.log('Connection state:', connection.connectionState)
+            const status = connection.connectionState
 
             let statusMessage = ''
             switch (status) {
@@ -244,9 +252,9 @@ class WebRTCClient {
             }
         }
 
-        this.connection.oniceconnectionstatechange = () => {
-            console.log('ICE connection state:', this.connection.iceConnectionState)
-            const iceState = this.connection.iceConnectionState
+        connection.oniceconnectionstatechange = () => {
+            console.log('ICE connection state:', connection.iceConnectionState)
+            const iceState = connection.iceConnectionState
 
             let statusMessage = ''
             switch (iceState) {
@@ -273,14 +281,14 @@ class WebRTCClient {
             }
         }
 
-        this.connection.onicegatheringstatechange = () => {
-            console.log('ICE gathering state:', this.connection.iceGatheringState)
-            if (this.connection.iceGatheringState === 'gathering') {
+        connection.onicegatheringstatechange = () => {
+            console.log('ICE gathering state:', connection.iceGatheringState)
+            if (connection.iceGatheringState === 'gathering') {
                 if (this.window && this.window.updateConnectionStatus) {
                     this.window.updateConnectionStatus('Gathering network information...')
                 }
             }
-            if (this.connection.iceGatheringState === 'complete') {
+            if (connection.iceGatheringState === 'complete') {
                 if (this.window && this.window.updateConnectionStatus) {
                     this.window.updateConnectionStatus('Gathering network information completed!')
                 }
@@ -288,15 +296,15 @@ class WebRTCClient {
         }
     }
 
-    setupDataChannel() {
-        this.dataChannel.onopen = () => {
+    setupDataChannel(dataChannel) {
+        dataChannel.onopen = () => {
             console.log('Data channel opened')
             if (this.window && this.window.updateConnectionStatus) {
                 this.window.updateConnectionStatus('Connected - Ready to play!')
             }
         }
 
-        this.dataChannel.onmessage = (event) => {
+        dataChannel.onmessage = (event) => {
             const message = JSON.parse(event.data)
             if (message.type === 'gameStateUpdate') {
                 console.log('Game state update received:', message.gameState)
@@ -306,23 +314,23 @@ class WebRTCClient {
                 return
             }
 
-            if (message.type === 'updateCharacter') {
-                console.log('Character update received:', message.position)
-                if (this.window && this.window.updateCharacter) {
-                    this.window.updateCharacter(message.character, message.position, message.enabled, message.currentAnim, message.speed)
+            if (message.type === 'runCommand') {
+                console.log('Run command received:', message.command, message.args)
+                if (this.window && this.window.runCommand) {
+                    this.window.runCommand(message.command, message.args)
                 }
                 return
             }
         }
 
-        this.dataChannel.onerror = (error) => {
+        dataChannel.onerror = (error) => {
             console.error('Data channel error:', error)
             if (this.window && this.window.updateConnectionStatus) {
                 this.window.updateConnectionStatus('Data channel error')
             }
         }
 
-        this.dataChannel.onclose = () => {
+        dataChannel.onclose = () => {
             console.log('Data channel closed')
             if (this.window && this.window.updateConnectionStatus) {
                 this.window.updateConnectionStatus('Disconnected')
@@ -330,30 +338,39 @@ class WebRTCClient {
         }
     }
 
-    async addICECandidate(candidateString) {
+    async addICECandidate(candidateString, connection) {
         const candidate = JSON.parse(candidateString)
 
-        if (this.connection.remoteDescription) {
-            await this.connection.addIceCandidate(candidate)
+        if (connection.remoteDescription) {
+            await connection.addIceCandidate(candidate)
         } else {
             this.iceQueue.push(candidate)
         }
     }
 
     sendMessage(message) {
-        if (this.dataChannel && this.dataChannel.readyState === 'open') {
-            this.dataChannel.send(JSON.stringify(message))
-        } else {
-            console.warn('Data channel not ready, message not sent:', message)
+        console.log('Sending message:', this.dataChannels)
+        for (const dataChannel in this.dataChannels) {
+            if (this.dataChannels[dataChannel] && this.dataChannels[dataChannel].readyState === 'open') {
+                this.dataChannels[dataChannel].send(JSON.stringify(message))
+                console.log(`Message sent on data channel ${dataChannel}:`, message)
+            } else {
+                console.warn(`Data channel ${dataChannel} not ready, message not sent:`, message)
+            }
         }
     }
 
     disconnect() {
-        if (this.dataChannel) {
-            this.dataChannel.close()
+        for (const dataChannel in this.dataChannels) {
+            if (this.dataChannels[dataChannel]) {
+                this.dataChannels[dataChannel].close()
+            }
         }
-        if (this.connection) {
-            this.connection.close()
+    
+        for (const connectionId in this.connections) {
+            if (this.connections[connectionId]) {
+                this.connections[connectionId].close()
+            }
         }
         console.log('Disconnected')
     }
