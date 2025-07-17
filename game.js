@@ -414,9 +414,6 @@ function drawCharacter(character, delta) {
         if (character.currentAnim === "exit") {
             ctx.globalAlpha = 0.5;
         }
-
-        console.log(animationIndex)
-        console.log(character)
         ctx.drawImage(character.anims[character.currentAnim][animationIndex], character.drawX, character.drawY);
         ctx.restore();
     }
@@ -816,7 +813,7 @@ function checkGameEnd() {
     }
 }
 
-function updateCharacter({character, position, enabled, currentAnim, speed}) {
+function updateCharacter({ character, position, enabled, currentAnim, speed }) {
     console.log("Updating character", position)
     const [x, y] = position
     characters[character].drawTargetX = x * TILE_SIZE + TILE_OFFSET_X
@@ -1062,8 +1059,8 @@ async function gameMode() {
     loadLevel(LEVELS[currentLevel]);
 
     // FIXME
-    characters[0].enabled = true;
-    characters[1].enabled = true;
+    //characters[0].enabled = true;
+    //characters[1].enabled = true;
 
     const clients = await webrtcClient.getClients()
     const allClientIds = Object.keys(clients)
@@ -1527,6 +1524,8 @@ function loadLevel(level) {
         if (characters[i].enabled) {
             selectedCharacter = i
         }
+
+        console.log(characters[i])
 
     }
 
