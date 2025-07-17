@@ -1186,8 +1186,8 @@ function setMovementButtons(movements) {
     addButton(
         powers[0].default,
         powers[0].imgSelected,
-        TILE_SIZE * 9 - 25,
-        25,
+        TILE_SIZE * 9,
+        0,
         TILE_SIZE,
         TILE_SIZE,
         4,
@@ -1206,8 +1206,8 @@ function setMovementButtons(movements) {
     addButton(
         powers[1].default,
         powers[1].imgSelected,
-        TILE_SIZE * 9 - 25,
-        25,
+        TILE_SIZE * 9,
+        0,
         TILE_SIZE,
         TILE_SIZE,
         5,
@@ -1228,8 +1228,8 @@ function setMovementButtons(movements) {
     addButton(
         powers[2].default,
         powers[2].imgSelected,
-        TILE_SIZE * 9 - 25,
-        25,
+        TILE_SIZE * 9,
+        0,
         TILE_SIZE,
         TILE_SIZE,
         5,
@@ -1242,8 +1242,8 @@ function setMovementButtons(movements) {
     addButton(
         imgExit,
         null,
-        25,
-        25,
+        0,
+        0,
         TILE_SIZE,
         TILE_SIZE,
         5,
