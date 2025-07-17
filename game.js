@@ -967,6 +967,7 @@ function displayGameArea() {
     }
     buttonsContainer.style.display = 'none'
     canvas.style.display = 'block'
+    document.body.classList.add('playing')
     gameEnded = false
     lastTime = 0
     requestAnimationFrame(gameLoop)
@@ -981,6 +982,7 @@ function endGame() {
     gameEnded = true
     buttonsContainer.style.display = 'flex'
     canvas.style.display = 'none'
+    document.body.classList.remove('playing')
 
     buttons = []
 

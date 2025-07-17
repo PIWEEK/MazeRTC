@@ -8,6 +8,14 @@ body {
     height: 100%;
 }
 
+.playing {
+    background-color: black;
+}
+
+.logo {
+    width: 50%
+}
+
 #gameCanvas {
     position: absolute;
     top: 50%;
@@ -24,6 +32,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    align-items: center;
 }
 
 .button {
@@ -34,6 +43,7 @@ body {
     border: 2px solid #333;
     background: #f0f0f0;
     border-radius: 5px;
+    width: 500px;
 }
 
 #game-info {
