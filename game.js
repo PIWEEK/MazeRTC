@@ -72,8 +72,9 @@ const jumpSound = new Audio('sound/jump.wav')
 const pushSound = new Audio('sound/push.wav')
 const teleportSound = new Audio('sound/teleport.wav')
 const doorSound = new Audio('sound/door.wav')
-const exitsSound = new Audio('sound/exits.wav')
+const openExitsSound = new Audio('sound/open_exits.wav')
 const winSound = new Audio('sound/win.wav')
+const exitSound = new Audio('sound/exit.wav')
 
 
 var board = [
@@ -789,6 +790,7 @@ function endMove(chNum, targetTile) {
     checkDoors()
 
     if (checkCharacterInExit(character)) {
+        exitSound.play()
         character.currentAnim = "exit"
         character.enabled = false
         selectNextCharacter()
@@ -810,7 +812,7 @@ function checkOpenExits() {
         }
     }
     if (open) {
-        exitsSound.play()
+        openExitsSound.play()
         characters.forEach(character => {
             character.exitOpen = true
         })
