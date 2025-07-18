@@ -1116,7 +1116,12 @@ async function gameMode() {
     // Create random assignment based on number of peers
     let assignments = [];
 
-    if (totalPeers === 1) {
+    if (totalPeers === 0) {
+        // No players: assign all buttons to the host
+        assignments = [
+            { clientId: "host", buttons: [0, 1, 2, 3] }
+        ];
+    } else if (totalPeers === 1) {
         // Single player: all 4 buttons
         assignments = [
             { clientId: currentClientId, buttons: [0, 1, 2, 3] }
