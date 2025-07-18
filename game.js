@@ -1700,8 +1700,8 @@ function getGameState() {
             y: char.y,
             exitX: char.exitX,
             exitY: char.exitY,
-            exitKeyX: char.exitX,
-            exitKeyY: char.exitY,
+            exitKeyX: char.exitKeyX,
+            exitKeyY: char.exitKeyY,
             currentAnim: char.currentAnim
         })),
         doors: doors.map(door => ({
