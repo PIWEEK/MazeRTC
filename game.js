@@ -68,6 +68,14 @@ let imgExit
 let imgPopup
 let imgLevel
 
+const jumpSound = new Audio('sound/jump.wav')
+const pushSound = new Audio('sound/push.wav')
+const teleportSound = new Audio('sound/teleport.wav')
+const doorSound = new Audio('sound/door.wav')
+const exitsSound = new Audio('sound/exits.wav')
+const winSound = new Audio('sound/win.wav')
+
+
 var board = [
     [7, 1, 1, 1, 1, 5],
     [4, 0, 0, 0, 0, 2],
@@ -622,8 +630,12 @@ function getMoveInfo(command) {
 
     }
 }
+function jumpAnim() {
+    jumpSound.play()
+}
 
 function pushAnim(character, targetTile) {
+    pushSound.play()
     let x = character.drawX
     let y = character.drawY
     character.drawTargetX = targetTile.x * TILE_SIZE + TILE_OFFSET_X
@@ -658,7 +670,11 @@ function checkDoors() {
     })
 
     doors.forEach(door => {
-        door.open = openColors.has(Math.floor(door.value / 4))
+        let newState = openColors.has(Math.floor(door.value / 4))
+        if (door.open != newState) {
+            doorSound.play()
+        }
+        door.open = newState
     })
 }
 
@@ -668,6 +684,7 @@ function teleport(command) {
     let targetCharacter = characters[command.targetCharacter]
     let teleportPlatform = findItem(teleports, character.x, character.y)
     if (teleportPlatform) {
+        teleportSound.play()
         setCharacterPos(character, targetCharacter.x, targetCharacter.y)
         setCharacterPos(targetCharacter, teleportPlatform.x, teleportPlatform.y)
         endMove(command.character, character)
@@ -717,9 +734,7 @@ function move() {
                     character.drawTargetX = targetTile.x * TILE_SIZE + TILE_OFFSET_X
                     character.drawTargetY = targetTile.y * TILE_SIZE + TILE_OFFSET_Y
 
-                    if (command.value >= JUMP) {
-                        character.speed = SPEED * 2
-                    }
+
 
                     if (targetTile.x > character.x) {
                         character.currentAnim = "walkR"
@@ -731,11 +746,15 @@ function move() {
                         character.currentAnim = "walkU"
                     }
 
-                    // Add push anim
-                    if ((command.value >= PUSH) && (command.value < TELEPORT)) {
+                    if ((command.value >= JUMP) && (command.value < PUSH)) {
+                        console.log("JUMP")
+                        character.speed = SPEED * 2
+                        jumpAnim()
+                    } else if ((command.value >= PUSH) && (command.value < TELEPORT)) {
+                        character.speed = SPEED * 2
                         pushAnim(characters[command.character], targetTile)
-
                     }
+
 
                     webrtcClient.sendMessage({
                         type: "runCommand",
@@ -791,6 +810,7 @@ function checkOpenExits() {
         }
     }
     if (open) {
+        exitsSound.play()
         characters.forEach(character => {
             character.exitOpen = true
         })
@@ -818,6 +838,7 @@ function checkGameEnd() {
 
     if (end) {
         console.log("All characters reached their exits! Game over!")
+        winSound.play()
         levelSelectionMode()
     }
 }
@@ -833,6 +854,7 @@ function updateCharacter({ character, position, enabled, currentAnim, speed }) {
 
     // For teleport
     if (speed == 10000) {
+        teleportSound.play()
         setCharacterPos(characters[character], x * TILE_SIZE + TILE_OFFSET_X, TILE_SIZE + TILE_OFFSET_Y)
         endMove(character, { x: x, y: y })
 
@@ -1140,6 +1162,7 @@ async function gameMode() {
 
 
 function setMovementButtons(movements) {
+    buttons = []
     const currentClientId = webrtcClient.signalingClient ? webrtcClient.signalingClient.clientId : webrtcClient.peerId || "default";
     const myButtons = movements[currentClientId] || [];
 
@@ -1228,6 +1251,7 @@ function setMovementButtons(movements) {
         if (selectedCharacter == 3) {
             button.selected = !button.selected
             powers[2].selected = !powers[2].selected
+            console.log("On teleport: " + powers[2].selected)
         }
     }
 
@@ -1335,8 +1359,8 @@ function logLevel() {
     console.log(levelTxt)
 }
 
-function addDoor(x, y, value, open) {
-    doors.push({ x: x, y: y, img: doorsImgs.closed[value], imgOpen: doorsImgs.open[value], value: value, open: open })
+function addDoor(x, y, value) {
+    doors.push({ x: x, y: y, img: doorsImgs.closed[value], imgOpen: doorsImgs.open[value], value: value, open: false })
 }
 
 
@@ -1543,7 +1567,7 @@ function loadLevel(level) {
 
     if (level.doors) {
         level.doors.forEach(door => {
-            addDoor(door.x, door.y, door.value, door.open)
+            addDoor(door.x, door.y, door.value)
         })
     }
 
@@ -1788,7 +1812,7 @@ function setGameState(gameState) {
 
     if (gameState.doors && gameState.doors.length > 0) {
         gameState.doors.forEach((doorData) => {
-            addDoor(doorData.x, doorData.y, doorData.value, doorData.open)
+            addDoor(doorData.x, doorData.y, doorData.value)
         })
     }
 
