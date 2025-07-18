@@ -1094,6 +1094,7 @@ async function gameMode() {
     mode = MODE_PLAYING
     music.currentTime = 0
     music.volume = 0.2
+    music.loop = true
     music.play()
 
     buttons = []
