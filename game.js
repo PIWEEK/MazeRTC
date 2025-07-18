@@ -75,6 +75,8 @@ const doorSound = new Audio('sound/door.wav')
 const openExitsSound = new Audio('sound/open_exits.wav')
 const winSound = new Audio('sound/win.wav')
 const exitSound = new Audio('sound/exit.wav')
+const music = new Audio('sound/music.mp3')
+music.loops = true
 
 
 var board = [
@@ -1061,6 +1063,8 @@ function initializeBoard(onClick) {
 
 function levelSelectionMode() {
     mode = MODE_LEVEL_SELECTION
+    music.pause()
+
 
     buttons = []
 
@@ -1088,6 +1092,9 @@ function levelSelectionMode() {
 
 async function gameMode() {
     mode = MODE_PLAYING
+    music.currentTime = 0
+    music.volume = 0.2
+    music.play()
 
     buttons = []
 
